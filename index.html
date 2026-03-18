@@ -60,7 +60,7 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.2 beta</p>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.3 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -478,6 +478,9 @@
                             <button onclick="openExplorationModal()" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2" id="explore-btn">
                                 <i data-lucide="compass" class="w-4 h-4"></i> สำรวจ
                             </button>
+                            <button onclick="openMultiActionModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2" id="multi-action-btn" style="display:none;">
+                                <i data-lucide="users" class="w-4 h-4"></i> ส่งหลายตัว
+                            </button>
                             <div id="exploration-status" class="text-sm text-yellow-400 font-bold"></div>
                             <div class="text-xs text-slate-400">ค่าจ้างรายนาที: <span id="total-upkeep" class="text-rose-400 font-bold">$0</span></div>
                         </div>
@@ -485,9 +488,15 @@
                     <!-- Unit Filter and Capacity Info -->
                     <div class="mb-4 space-y-2">
                         <div class="flex gap-2 items-center">
-                            <input type="text" id="unit-search-box" placeholder="ค้นหา ชื่อ อาชีพ หรือเลเวล..." 
+                            <input type="text" id="unit-search-box" placeholder="ค้นหา ชื่อ อาชีพ หรือเลเวล... (Hover เพื่อเลือก)" 
                                 class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                 onkeyup="filterUnitList()">
+                            <button id="select-all-btn" onclick="selectAllUnits()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg font-bold text-xs" style="display:none;">
+                                เลือกทั้งหมด
+                            </button>
+                            <button id="clear-sel-btn" onclick="clearUnitSelection()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg font-bold text-xs" style="display:none;">
+                                เคลียร์
+                            </button>
                             <div class="text-xs text-indigo-400 font-bold whitespace-nowrap bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
                                 <span id="unit-capacity-display">0/2</span>
                             </div>
@@ -934,7 +943,8 @@
             loanAutoPayCount: 0, // Track how many times auto-payment has failed (0-3)
             capturedUntil: 0, // Timestamp when capture effect ends (0 = not captured)
             dungeons: [], // { id, level, depth, discovered, scoutedLevel, exploringUnits: [] , rewards: [] }
-            selectedLoanAmount: null // Remember which loan amount button was clicked
+            selectedLoanAmount: null, // Remember which loan amount button was clicked
+            selectedUnitsForAction: new Set() // Store UIDs of units selected for multi-action
         };
 
         // --- Database ---
@@ -1706,8 +1716,9 @@
                         const searchText = `${displayName} ${u.level} ${origType}`.toLowerCase();
                         
                         return `
-                        <div class="unit-card bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col gap-2" data-unit-name="${displayName}" data-unit-type="${origType}" data-unit-level="${u.level}" data-search-text="${searchText}">
+                        <div class="unit-card bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col gap-2 group relative" data-unit-name="${displayName}" data-unit-type="${origType}" data-unit-level="${u.level}" data-search-text="${searchText}" data-uid="${u.uid}">
                             <div class="flex justify-between items-center">
+                                <input type="checkbox" class="unit-action-checkbox h-4 w-4 cursor-pointer mr-2 opacity-0 group-hover:opacity-100 transition-opacity" data-uid="${u.uid}" onchange="toggleUnitForAction(${u.uid}, this)">
                                 <div onclick="openUnitRenameModal(${u.uid})" class="cursor-pointer hover:text-blue-400 transition-colors flex-1">
                                     <span class="font-bold text-sm text-indigo-400">${displayName}</span>
                                 </div>
@@ -1758,6 +1769,9 @@
                     capacityContainer.classList.add('text-indigo-400');
                 }
             }
+
+            // Update multi-action UI
+            updateUnitSelectionUI();
         }
 
         function healSelf() {
@@ -3837,6 +3851,290 @@
         function setCooldown(uid, actionType) {
             const cooldownKey = `${uid}_${actionType}`;
             state.actionCooldowns[cooldownKey] = Date.now();
+        }
+
+        // ===== MULTI-UNIT ACTION SYSTEM =====
+        function toggleUnitForAction(uid, checkbox) {
+            if (checkbox.checked) {
+                state.selectedUnitsForAction.add(uid);
+            } else {
+                state.selectedUnitsForAction.delete(uid);
+            }
+            updateUnitSelectionUI();
+        }
+
+        function updateUnitSelectionUI() {
+            const count = state.selectedUnitsForAction.size;
+            
+            // Update all checkboxes
+            document.querySelectorAll('.unit-action-checkbox').forEach(cb => {
+                const uid = parseInt(cb.getAttribute('data-uid'));
+                cb.checked = state.selectedUnitsForAction.has(uid);
+            });
+            
+            // Update visual feedback on unit cards
+            document.querySelectorAll('.unit-card').forEach(card => {
+                const uid = parseInt(card.getAttribute('data-uid'));
+                if (state.selectedUnitsForAction.has(uid)) {
+                    card.classList.add('bg-emerald-900/50', 'border-emerald-500', 'border-2');
+                } else {
+                    card.classList.remove('bg-emerald-900/50', 'border-emerald-500', 'border-2');
+                }
+            });
+
+            // Show/hide multi-action buttons based on selection
+            const multiActionBtn = document.getElementById('multi-action-btn');
+            const selectAllBtn = document.getElementById('select-all-btn');
+            const clearBtn = document.getElementById('clear-sel-btn');
+
+            if (count > 0) {
+                if (multiActionBtn) multiActionBtn.style.display = 'flex';
+                if (selectAllBtn) selectAllBtn.style.display = 'inline-block';
+                if (clearBtn) clearBtn.style.display = 'inline-block';
+            } else {
+                if (multiActionBtn) multiActionBtn.style.display = 'none';
+                if (selectAllBtn) selectAllBtn.style.display = 'none';
+                if (clearBtn) clearBtn.style.display = 'none';
+            }
+        }
+
+        function selectAllUnits() {
+            state.units.forEach(u => {
+                state.selectedUnitsForAction.add(u.uid);
+            });
+            updateUnitSelectionUI();
+        }
+
+        function clearUnitSelection() {
+            state.selectedUnitsForAction.clear();
+            updateUnitSelectionUI();
+        }
+
+        function getMultiActionBonus(unitCount) {
+            // Returns an object with bonuses based on number of units sent
+            // First unit: 1x power
+            // Additional units: +20% power per unit
+            const powerMultiplier = 1 + ((unitCount - 1) * 0.2);
+            const successRate = 1 + ((unitCount - 1) * 0.15); // +15% success per additional unit
+            const duration = 1 + ((unitCount - 1) * 0.1); // +10% capture duration per additional unit
+            
+            return {
+                power: powerMultiplier,
+                success: successRate,
+                duration: duration,
+                count: unitCount
+            };
+        }
+
+        function openMultiActionModal() {
+            if (state.selectedUnitsForAction.size === 0) {
+                showAlert("ไม่มีการเลือก", "กรุณาเลือกหน่วยอย่างน้อย 1 ตัว", "alert-circle");
+                return;
+            }
+
+            // Get selected units
+            const selectedUnits = state.units.filter(u => state.selectedUnitsForAction.has(u.uid));
+            const bonus = getMultiActionBonus(selectedUnits.length);
+            const totalPower = selectedUnits.reduce((sum, u) => sum + u.atk, 0);
+            const totalDef = selectedUnits.reduce((sum, u) => sum + u.def, 0);
+
+            let modalHTML = `<div id="multi-action-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+                <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-yellow-500 max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-yellow-400">⚔️ ส่งกองกำลังหลายตัว</h2>
+                        <button onclick="closeModal('multi-action-modal')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+
+                    <!-- Selected Units Summary -->
+                    <div class="bg-slate-900/50 p-4 rounded-xl mb-4 border border-yellow-500/30">
+                        <p class="text-sm font-bold text-yellow-400 mb-3">📋 หน่วยที่เลือก (${selectedUnits.length} ตัว)</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3 max-h-40 overflow-y-auto">`;
+
+            selectedUnits.forEach(u => {
+                const itemDef = SHOP_ITEMS.find(i => i.id === u.typeId);
+                const typeName = itemDef ? itemDef.name : 'Unit';
+                modalHTML += `<div class="bg-slate-800 p-2 rounded text-xs">
+                    <span class="text-indigo-400 font-bold">${u.name}</span> (${typeName} Lv.${u.level})
+                    <br><span class="text-slate-400">⚔️${u.atk} 🛡️${u.def}</span>
+                </div>`;
+            });
+
+            modalHTML += `</div>
+
+                    <!-- Bonus Display -->
+                    <div class="bg-emerald-900/30 border border-emerald-500/50 p-4 rounded-xl mb-4">
+                        <p class="text-sm font-bold text-emerald-400 mb-2">💪 โบนัสเพิ่มเติม</p>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <p class="text-xs text-slate-400">พลัง</p>
+                                <p class="text-lg font-bold text-emerald-300">x${bonus.power.toFixed(2)}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-400">โอกาส</p>
+                                <p class="text-lg font-bold text-emerald-300">x${bonus.success.toFixed(2)}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-400">ระยะเวลา</p>
+                                <p class="text-lg font-bold text-emerald-300">x${bonus.duration.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Stats -->
+                    <div class="bg-slate-800/50 p-3 rounded-lg mb-4 text-sm">
+                        <p class="text-slate-300">รวม ⚔️ พลัง: <span class="font-bold text-rose-400">${Math.floor(totalPower * bonus.power)}</span></p>
+                        <p class="text-slate-300">รวม 🛡️ ป้องกัน: <span class="font-bold text-blue-400">${Math.floor(totalDef * bonus.power)}</span></p>
+                    </div>
+
+                    <!-- Leaderboard text -->
+                    <label class="text-[10px] text-slate-500 uppercase mb-2 block">เลือกเพื่อนผู้รับ</label>
+                    <select id="multi-action-target" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 mb-6 outline-none text-white text-sm">
+                        ${state.friends.map(f => `<option value="${f.id}">${f.username}</option>`).join('')}
+                    </select>
+
+                    ${state.friends.length === 0 ? '<p class="text-center text-slate-400 text-sm mb-4">ไม่มีเพื่อนที่เชื่อมต่อ</p>' : ''}
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+                        <button onclick="executeMultiAction('ATTACK')" class="bg-rose-600 hover:bg-rose-500 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs">
+                            <i data-lucide="sword" class="w-4 h-4"></i> โจมตี
+                        </button>
+                        <button onclick="executeMultiAction('GIFT')" class="bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs">
+                            <i data-lucide="gift" class="w-4 h-4"></i> ของขวัญ
+                        </button>
+                        <button onclick="executeMultiAction('ROB')" class="bg-amber-600 hover:bg-amber-500 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3-8c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zM7 8h10v2H7z" transform="rotate(45 12 12)"/></svg> ปล้น
+                        </button>
+                        <button onclick="executeMultiAction('CAPTURE')" class="bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs">
+                            <i data-lucide="lock" class="w-4 h-4"></i> จับตัว
+                        </button>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="clearUnitSelection(); closeModal('multi-action-modal')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-xl font-bold text-sm">เคลียร์</button>
+                        <button onclick="closeModal('multi-action-modal')" class="flex-1 bg-slate-800 py-2 rounded-xl font-bold text-sm hover:bg-slate-700">ยกเลิก</button>
+                    </div>
+                </div>
+            </div>`;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            lucide.createIcons();
+        }
+
+        function executeMultiAction(actionType) {
+            const selectedUnits = state.units.filter(u => state.selectedUnitsForAction.has(u.uid));
+            const targetId = document.getElementById('multi-action-target').value;
+
+            if (!targetId || !state.peer.connections[targetId]) {
+                showAlert("Error", "ไม่พบเพื่อนปลายทาง", "x");
+                return;
+            }
+
+            const conn = state.peer.connections[targetId].find(c => c.open);
+            if (!conn) {
+                showAlert("Connection Error", "เพื่อนไม่ได้ออนไลน์", "wifi-off");
+                return;
+            }
+
+            const bonus = getMultiActionBonus(selectedUnits.length);
+            let totalValue = 0;
+            let totalRobs = 0;
+            let totalCaptureDuration = 0;
+
+            // Calculate combined values
+            selectedUnits.forEach(unit => {
+                if (actionType === 'ATTACK') {
+                    totalValue += unit.atk;
+                } else if (actionType === 'ROB') {
+                    const baseRob = 100 + (unit.level * 50) + (unit.atk * 10);
+                    const successRate = 0.6;
+                    totalRobs += Math.floor(baseRob * successRate);
+                } else if (actionType === 'CAPTURE') {
+                    const captureDuration = Math.floor(5 + (unit.level * 0.5) + (unit.def * 0.3));
+                    totalCaptureDuration += captureDuration;
+                }
+            });
+
+            // Apply bonuses
+            totalValue = Math.floor(totalValue * bonus.power);
+            totalRobs = Math.floor(totalRobs * bonus.success);
+            totalCaptureDuration = Math.floor(totalCaptureDuration * bonus.duration);
+
+            selectedUnits.forEach(unit => {
+                // Calculate retaliation damage
+                if (actionType === 'ATTACK' || actionType === 'ROB') {
+                    const enemyDefense = 5;
+                    let retaliationDmg = Math.max(1, enemyDefense - unit.def);
+                    retaliationDmg = Math.floor(retaliationDmg * (0.8 + Math.random() * 0.4));
+
+                    const maxHpThreshold = unit.maxHp * 0.3;
+                    let retreatChance = Math.max(0, 0.4 - (unit.level * 0.02));
+
+                    if (retaliationDmg > maxHpThreshold) {
+                        retreatChance += 0.3;
+                    }
+
+                    retreatChance = Math.min(0.85, retreatChance);
+
+                    if (Math.random() < retreatChance) {
+                        const retreatDmg = Math.floor(retaliationDmg * (Math.random() * 0.5));
+                        unit.hp = Math.max(0, unit.hp - retreatDmg);
+                        log(`${getUnitDisplayName(unit)} ตื่นกลัวและหนีกลับมา! (-${retreatDmg} HP)`, "text-yellow-500 font-bold");
+                    } else {
+                        unit.hp = Math.max(0, unit.hp - retaliationDmg);
+                        log(`${getUnitDisplayName(unit)} takes ${retaliationDmg} retaliation damage`, "text-orange-400");
+                    }
+
+                    if (unit.hp <= 0) {
+                        state.units = state.units.filter(u => u.uid !== unit.uid);
+                        log(`${getUnitDisplayName(unit)} DIED from battle!`, "text-rose-500 font-bold");
+                    }
+                }
+
+                // Set cooldown for each unit
+                setCooldown(unit.uid, actionType);
+            });
+
+            // Send message to friend
+            const unitNames = selectedUnits.map(u => u.name).join(', ');
+            const actionNames = { 'ATTACK': 'โจมตี', 'GIFT': 'ส่งของขวัญ', 'ROB': 'ปล้น', 'CAPTURE': 'จับตัว' };
+
+            conn.send({
+                type: 'MULTI_PVP_ACTION',
+                action: actionType,
+                unitNames: unitNames,
+                unitCount: selectedUnits.length,
+                value: totalValue,
+                robAmount: totalRobs,
+                captureDuration: totalCaptureDuration,
+                bonusMultiplier: bonus.power,
+                from: state.username
+            });
+
+            // Calculate cost
+            let cost = 100 * selectedUnits.length;
+            if (actionType === 'ROB') cost = 150 * selectedUnits.length;
+            else if (actionType === 'CAPTURE') cost = 120 * selectedUnits.length;
+
+            state.balance -= cost;
+
+            let successMsg = '';
+            if (actionType === 'ROB') {
+                successMsg = ` (รวมปล้นได้ $${totalRobs})`;
+            } else if (actionType === 'CAPTURE') {
+                successMsg = ` (รวมจับได้นาน ${totalCaptureDuration} วินาที)`;
+            } else if (actionType === 'ATTACK') {
+                successMsg = ` (รวมพลัง ${totalValue})`;
+            }
+
+            showToast(`ส่ง ${selectedUnits.length} ตัว เป็น ${actionNames[actionType]}${successMsg}`, "success", 3000);
+            log(`Sent ${selectedUnits.length} units to ${actionNames[actionType].toLowerCase()} (+${bonus.power.toFixed(2)}x bonus)`, "text-yellow-400 font-bold");
+
+            saveProfile();
+            updateStatsUI();
+            updatePortfolioUI();
+            clearUnitSelection();
+            closeModal('multi-action-modal');
         }
         
         function confirmAction(type) {
