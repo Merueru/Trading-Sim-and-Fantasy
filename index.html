@@ -60,7 +60,8 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2 beta</p>
+                <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.1 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -1986,7 +1987,8 @@
                 sellMultiplier *= (0.5 + penaltyFactor * 0.3); // 50% to 80% of normal multiplier
             }
             
-            return Math.floor(item.basePrice * sellMultiplier);
+            const currentPrice = state.shopPrices[itemId] || item.basePrice;
+            return Math.floor(currentPrice * sellMultiplier);
         }
         
         function recordSell(itemId) {
