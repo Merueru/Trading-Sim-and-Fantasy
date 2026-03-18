@@ -60,7 +60,7 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.1 beta</p>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.2 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -4077,6 +4077,15 @@
         }
 
         // --- UI ---
+        // Calculate total wealth including all open positions
+        function getTotalWealth() {
+            let totalPositionSize = 0;
+            if (state.positions && state.positions.length > 0) {
+                totalPositionSize = state.positions.reduce((sum, p) => sum + p.size, 0);
+            }
+            return state.balance + totalPositionSize;
+        }
+
         function updatePortfolioUI() {
             document.getElementById('display-balance').innerText = `$${state.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('display-username').innerText = state.username;
@@ -4373,13 +4382,17 @@
                 restockShop(); // Restock shop every minute
                 if (state.activeScreen === 'loan-screen') updateLoanUI(); // Update interest display
                 
-                // Check if balance is 0 or negative - Game Over!
-                if (state.balance <= 0) {
+                // Check if total wealth (balance + positions) is 0 or negative - Game Over!
+                if (getTotalWealth() <= 0) {
                     state.balance = 0;
                     log("💀 ระบบซัดผลการจ่ายหนี้! งบประมาณเป็น 0!", "text-rose-600 font-bold");
                     showAlert("GAME OVER", "เงินของคุณหมด! เกมจบแล้ว", "skull");
-                    // Disable all actions
-                    document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                    // Disable all actions except alert modal close button
+                    document.querySelectorAll('button').forEach(btn => {
+                        if (!btn.closest('#alert-modal')) {
+                            btn.disabled = true;
+                        }
+                    });
                     document.querySelectorAll('input').forEach(inp => inp.disabled = true);
                     document.querySelectorAll('select').forEach(sel => sel.disabled = true);
                     return;
@@ -4403,8 +4416,12 @@
                     if (state.stats.hp <= 0) {
                         log("⚠️ คุณตายแล้ว!", "text-rose-600 font-bold");
                         showAlert("GAME OVER", "คุณตายแล้ว! ต้องเริ่มเกมใหม่", "skull");
-                        // Disable all actions
-                        document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                        // Disable all actions except alert modal close button
+                        document.querySelectorAll('button').forEach(btn => {
+                            if (!btn.closest('#alert-modal')) {
+                                btn.disabled = true;
+                            }
+                        });
                         document.querySelectorAll('input').forEach(inp => inp.disabled = true);
                         document.querySelectorAll('select').forEach(sel => sel.disabled = true);
                     }
