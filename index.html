@@ -90,7 +90,7 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.6 beta</p>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.7 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -469,8 +469,8 @@
                                 <i data-lucide="shield"></i> ดูรายละเอียด (<span id="equipment-count">0</span>)
                             </button>
                         </div>
-                        <button onclick="healSelf()" class="w-full bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="heart-pulse"></i> รักษาตัวเอง ($500)
+                        <button id="heal-self-btn" onclick="healSelf()" class="w-full bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="heart-pulse"></i> รักษาตัวเอง ($0)
                         </button>
                         
                         <button onclick="openInventoryModal()" class="w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
@@ -792,7 +792,7 @@
             { id: 'supercar', name: 'Ferrari SF90', type: 'Vehicle', basePrice: 500000, icon: 'rocket', effect: { energy: 100 }, maxStock: 1, restockRate: 0.01 },
 
             // Real Estate - Housing (with unit capacity)
-            { id: 'house_cozy', name: 'สบาย บ้านน้อย', type: 'Real Estate', basePrice: 5000, icon: 'home', unitCapacity: 3, maxStock: 20, restockRate: 0.5 },
+            { id: 'house_cozy', name: 'บ้านสบายน้อย', type: 'Real Estate', basePrice: 5000, icon: 'home', unitCapacity: 3, maxStock: 20, restockRate: 0.5 },
             { id: 'house_small', name: 'บ้านเล็ก 1 ห้องนอน', type: 'Real Estate', basePrice: 15000, icon: 'home', unitCapacity: 5, maxStock: 15, restockRate: 0.4 },
             { id: 'house_modest', name: 'บ้านธรรมดา 2 ห้องนอน', type: 'Real Estate', basePrice: 35000, icon: 'home', unitCapacity: 7, maxStock: 12, restockRate: 0.35 },
             { id: 'house_nice', name: 'บ้านสวย 3 ห้องนอน', type: 'Real Estate', basePrice: 75000, icon: 'home', unitCapacity: 10, maxStock: 8, restockRate: 0.2 },
@@ -1415,13 +1415,13 @@
         }
         // --- Trading ---
         function formatNumber(num) {
-            // Format numbers with K, M, B suffixes - only for numbers >= 100,000
+            // Format numbers with K, M, B suffixes - for numbers >= 100,000
             if (num >= 1000000000) {
-                return (num / 1000000000).toFixed(1) + 'b';
+                return (num / 1000000000).toFixed(2).replace(/\.00$/, '') + 'b';
             } else if (num >= 1000000) {
-                return (num / 1000000).toFixed(1) + 'm';
+                return (num / 1000000).toFixed(2).replace(/\.00$/, '') + 'm';
             } else if (num >= 100000) {
-                return (num / 1000).toFixed(0) + 'k';
+                return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'k';
             }
             // For numbers < 100,000, use full with comma formatting
             return Math.floor(num).toLocaleString();
@@ -1989,6 +1989,14 @@
                 }
             }
 
+            // Update heal button dynamic cost (1 HP = $100)
+            const healButton = document.getElementById('heal-self-btn');
+            if (healButton) {
+                const damageTaken = Math.max(0, state.stats.maxHp - state.stats.hp);
+                const healCost = damageTaken * 100;
+                healButton.innerHTML = `<i data-lucide="heart-pulse"></i> ❤️ รักษาตัวเอง ($${formatNumber(healCost)})`; // ปุ่มฮีลเลือดตัวเอง
+            }
+
             // Update multi-action UI
             updateUnitSelectionUI();
             
@@ -2000,20 +2008,22 @@
 
         function healSelf() {
             const damageTaken = state.stats.maxHp - state.stats.hp;
-            if (damageTaken <= 0) return showAlert("Full Health", "เลือดเต็มอยู่แล้ว", "smile");
-            
-            // Cost formula: base 50 per damage taken + price fluctuation (±20%)
-            const baseCost = damageTaken * 50;
-            const priceFluctuation = 0.8 + Math.random() * 0.4; // Random between 0.8 and 1.2
-            const healCost = Math.floor(baseCost * priceFluctuation);
-            
+            if (damageTaken <= 0) {
+                // Full HP, cost 0 and no action needed
+                showToast("เลือดเต็มแล้ว งดการรักษา (0 บาท)", "info", 2000);
+                return;
+            }
+
+            // Cost formula: 1 HP = $100
+            const healCost = damageTaken * 100;
+
             if (state.balance < healCost) {
                 return showAlert("No Money", `เงินไม่พอรักษา (ต้อง $${formatNumber(healCost)})`, "frown");
             }
-            
-            const healAmount = Math.ceil(damageTaken * 0.8); // Heal 80% of damage taken
+
+            const healAmount = damageTaken; // Fully recover missing HP
             state.balance -= healCost;
-            state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + healAmount);
+            state.stats.hp = state.stats.maxHp;
             saveProfile();
             updateStatsUI();
             updatePortfolioUI();
@@ -2309,10 +2319,13 @@
                 }
             });
 
+            const totalCapacity = getCurrentUnitCapacity();
+            const usedUnits = state.units.length;
             let modalHTML = `<div id="housing-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
                 <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-green-500 max-h-[90vh] flex flex-col">
-                    <h2 class="text-2xl font-bold mb-4">🏠 ที่อยู่อาศัย</h2>
-                    
+                    <h2 class="text-2xl font-bold mb-2">🏠 ที่อยู่อาศัย</h2>
+                    <p class="text-sm text-slate-400 mb-3">กำลังใช้งาน ${usedUnits} / ${totalCapacity} คน</p>
+                    <p class="text-xs text-slate-500 mb-4">ราคาขายอัปเดตเรียลไทม์</p>
                     <div class="flex-1 overflow-y-auto space-y-3 pr-2 smooth-scroll mb-4">`;
             
             if (housingItems.length === 0) {
@@ -2321,20 +2334,24 @@
                 housingItems.forEach(({ itemDef, inv }) => {
                     const income = itemDef.income ? `<span class="font-mono text-green-400">+$${itemDef.income}/วินาที</span>` : '';
                     const sellPrice = calculateSellPrice(inv.itemId, itemDef.basePrice);
+                    const formattedPrice = formatNumber(sellPrice);
+                    const capacityText = itemDef.unitCapacity ? `<span class="text-xs text-slate-400">รองรับ ${itemDef.unitCapacity} คน</span>` : '';
                     
                     modalHTML += `
-                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-lg">
+                    <div class="housing-item-card bg-slate-900 border border-slate-800 p-4 rounded-lg" data-inv-id="${inv.uid}">
                         <div class="flex justify-between items-start mb-2">
                             <div>
                                 <p class="font-bold text-green-300">${itemDef.name}</p>
                                 <p class="text-[10px] text-slate-500 mt-1">ประเภท: ${itemDef.type}</p>
+                                ${capacityText}
                             </div>
                             <div class="text-right">
-                                <p class="text-yellow-400 font-bold">$${sellPrice}</p>
+                                <p class="housing-price text-yellow-400 font-bold">$${formattedPrice}</p>
+                                <p class="text-[10px] text-slate-400 mt-1">ขายทันที</p>
                             </div>
                         </div>
                         ${itemDef.income ? `<div class="bg-slate-800/50 p-2 rounded mb-3 text-sm">${income}</div>` : ''}
-                        <button onclick="sellItem('${inv.uid}')" class="w-full bg-orange-600 hover:bg-orange-500 text-white px-3 py-2 rounded text-sm font-bold transition-all">ขาย</button>
+                        <button onclick="sellItem('${inv.uid}')" class="bg-orange-600 hover:bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold transition-all">ขาย</button>
                     </div>`;
                 });
             }
@@ -2348,6 +2365,28 @@
             </div>`;
             
             document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+            // Real-time housing sell price refresh (while modal is open)
+            if (window.housingModalPriceInterval) clearInterval(window.housingModalPriceInterval);
+            window.housingModalPriceInterval = setInterval(() => {
+                const modal = document.getElementById('housing-modal');
+                if (!modal) {
+                    clearInterval(window.housingModalPriceInterval);
+                    window.housingModalPriceInterval = null;
+                    return;
+                }
+                document.querySelectorAll('.housing-item-card').forEach(card => {
+                    const invId = card.getAttribute('data-inv-id');
+                    const inv = state.inventory.find(i => i.uid == invId);
+                    if (!inv) return;
+                    const itemDef = SHOP_ITEMS.find(i => i.id === inv.itemId);
+                    if (!itemDef) return;
+                    const sellPrice = calculateSellPrice(inv.itemId, itemDef.basePrice);
+                    const formattedPrice = formatNumber(sellPrice);
+                    const priceEl = card.querySelector('.housing-price');
+                    if (priceEl) priceEl.textContent = `$${formattedPrice}`;
+                });
+            }, 1000);
         }
         
         function openInventoryModal() {
@@ -2608,7 +2647,18 @@
             
             return Math.max(1, mpToLose);
         }
-        
+
+        function getRandomDamageCause(explorationType, monsterDifficulty) {
+            const causePool = {
+                near: ['หกล้ม', 'ถูกต้นไม้ล้มทับเล็กน้อย', 'สะดุดรากไม้', 'โดนแมลงกัดต่อย'],
+                around: ['ตกหลุม', 'โดนลอบโจมตี', 'เจ็บใช้อุปกรณ์ผิดวิธี', 'ถูกหมาป่าฉก'],
+                far: ['โจมตีจากสัตว์ป่าร้ายแรง', 'เจอจอมโจรลอบโจมตี', 'ถูกฝูงมอนสเตอร์รุม', 'ตัดทางหลงทางจนเหนื่อย'],
+                dungeon: ['ถูกมอนสเตอรฺ์ระดับสูงโจมตี', 'โดนกับดักระเบิด', 'คู่ต่อสู้ประจำระดับสังหาร', 'เสียเลือดจากการต่อสู้เพื่อผ่านห้อง']
+            };
+            const pool = causePool[explorationType] || causePool.far;
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
         function calculateDeathChanceReduction(exploringParty) {
             // Calculate death chance reduction based on priests/healers in party
             if (!exploringParty || !Array.isArray(exploringParty)) return 0; // No reduction if no party
@@ -2731,19 +2781,28 @@
             return baseRate;
         }
         
-        function calculateUnitDamage(unit, monsterDifficulty, explorationPartySize) {
+        function calculateUnitDamage(unit, monsterDifficulty, explorationPartySize, explorationType = 'near') {
             // Calculate damage taken by a unit during exploration/dungeon
             // Difficulty: 0 = near (weak), 1 = around (medium), 2 = far (hard), 3+ = dungeon
             
             const baseDamagePercent = [
-                { min: 0.01, max: 30 },   // near: 0.01% - 30%
-                { min: 5, max: 65 },      // around: 5% - 65%
-                { min: 20, max: 90 },     // far: 20% - 90%
-                { min: 30, max: 99.99 }   // dungeon: 30% - 99.99%
+                { min: 0.01, max: 20 },   // near: much lower becauseเหตุผลง่าย
+                { min: 5, max: 55 },      // around: moderate
+                { min: 20, max: 85 },     // far: hard
+                { min: 30, max: 99.99 }   // dungeon: very hard
             ][Math.min(monsterDifficulty, 3)];
             
             // Random damage within range
             let damagePercent = baseDamagePercent.min + (Math.random() * (baseDamagePercent.max - baseDamagePercent.min));
+            
+            // Exploration type modifier (สำรวจไกลและดันเจี้ยนมีความเสี่ยงมากขึ้น)
+            const explorationModifier = {
+                near: 0.7,
+                around: 0.9,
+                far: 1.0,
+                dungeon: 1.2
+            }[explorationType] || 1;
+            damagePercent *= explorationModifier;
             
             // Defense reduces damage
             const def = unit.def || 0;
@@ -2756,6 +2815,10 @@
                 const healReduction = Math.min(0.2, healPower / 500); // Max 20% reduction
                 damagePercent *= (1 - healReduction);
             }
+
+            // Level/experience reduces damage taken
+            const levelReduction = Math.min(0.5, (unit.level || 1) / 200); // max 50%
+            damagePercent *= (1 - levelReduction);
             
             // Party size bonus: more units = less damage per unit (they help)
             const partySizeBonus = Math.min(0.5, (explorationPartySize - 1) * 0.1); // Up to 50% reduction
@@ -2767,7 +2830,7 @@
             return damage;
         }
         
-        function applyUnitDamageAndDeath(units, monsterDifficulty) {
+        function applyUnitDamageAndDeath(units, monsterDifficulty, explorationType = 'near') {
             // Apply damage to all units from encounter
             // Returns { survivors: [...], deaths: [...], injured: [...] }
             
@@ -2775,33 +2838,32 @@
             const partnerSize = units.length;
             
             units.forEach(unit => {
-                // Calculate damage
-                const damage = calculateUnitDamage(unit, monsterDifficulty, partnerSize);
+                const cause = getRandomDamageCause(explorationType, monsterDifficulty);
+                const damage = calculateUnitDamage(unit, monsterDifficulty, partnerSize, explorationType);
                 const hpBefore = unit.hp || unit.maxHp;
                 const hpAfter = Math.max(0, hpBefore - damage);
-                
+
                 unit.hp = hpAfter;
-                
-                // Check death (hp = 0)
+
                 if (hpAfter <= 0) {
                     result.deaths.push({
                         unit,
                         damageDealt: damage,
-                        hpBefore
+                        hpBefore,
+                        cause
                     });
                 } else if (hpAfter < hpBefore) {
-                    // Injured but survived
                     const damagePercent = ((hpBefore - hpAfter) / hpBefore * 100).toFixed(2);
                     result.injured.push({
                         unit,
                         damageDealt: damage,
                         hpBefore,
                         hpAfter,
-                        damagePercent
+                        damagePercent,
+                        cause
                     });
                     result.survivors.push(unit);
                 } else {
-                    // No damage
                     result.survivors.push(unit);
                 }
             });
@@ -2809,6 +2871,48 @@
             return result;
         }
         
+        function getExplorationLootCandidates(type) {
+            const noDropTypes = ['Real Estate'];
+            let candidates = SHOP_ITEMS.filter(item => {
+                if (item.craftOnly || item.type === 'Unit') return false;
+                if (noDropTypes.includes(item.type)) return false;
+                // Always no real estate
+                if (item.type === 'Real Estate') return false;
+                // Dungeon-only items are not available in near
+                if (item.dungeonOnly && type === 'near') return false;
+
+                // Value-limited by exploration depth
+                if (type === 'near' && item.basePrice > 250) return false;
+                if (type === 'around' && item.basePrice > 1200) return false;
+                if (type === 'far' && item.basePrice > 10000) return false;
+                if (type === 'dungeon' && item.basePrice > 200000) return false;
+                return true;
+            });
+
+            return candidates;
+        }
+
+        function pickExplorationLoot(type) {
+            const candidates = getExplorationLootCandidates(type);
+            if (!candidates || candidates.length === 0) return null;
+
+            const weighted = candidates.map(item => {
+                // Rare/expensive items low chance (1/(price+1))
+                const rarityFactor = 1 / (item.basePrice + 10);
+                const typeBoost = type === 'near' ? 1.5 : type === 'around' ? 1.1 : type === 'far' ? 1.0 : 0.7;
+                const dungeonBoost = item.dungeonOnly ? (type === 'dungeon' ? 2.5 : 0.1) : 1;
+                return { item, weight: Math.max(0.001, rarityFactor * typeBoost * dungeonBoost) };
+            });
+
+            const totalWeight = weighted.reduce((sum, iw) => sum + iw.weight, 0);
+            let pick = Math.random() * totalWeight;
+            for (let iw of weighted) {
+                pick -= iw.weight;
+                if (pick <= 0) return iw.item;
+            }
+            return weighted[weighted.length - 1].item;
+        }
+
         // --- HP Recovery System (runs every 5 seconds) ---
         function updateUnitHPRecovery() {
             // Slowly recover HP for all units over time
@@ -3623,6 +3727,7 @@
                     exploration.status = 'ready';
                     saveProfile(); // Save when ready
                     updateExplorationUI();
+                    showToast('กลุ่มสำรวจกลับมาแล้ว! เข้าไปดูผลได้ทันที', 'success', 3000);
                 } else {
                     updateExplorationUI();
                 }
@@ -3676,9 +3781,13 @@
             
             const numUnits = units.length;
             const scalingFactor = 1 + (numUnits - 1) * 0.1;
-            const itemChance = Math.min(0.8, 0.4 + (numUnits - 1) * 0.05);
+            const itemChance = { near: 0.7, around: 0.5, far: 0.28 }[type] || 0.28;
             
-            const baseLoot = { near: () => Math.floor(Math.random() * 500) + 300, around: () => Math.floor(Math.random() * 1200) + 800, far: () => Math.floor(Math.random() * 2000) + 1500 };
+            const baseLoot = {
+                near: () => Math.floor(Math.random() * 300) + 150,
+                around: () => Math.floor(Math.random() * 900) + 500,
+                far: () => Math.floor(Math.random() * 1700) + 1200
+            };
             rewards.money = Math.floor(baseLoot[type]() * scalingFactor);
             
             // Apply MP loss from combat encounters
@@ -3686,16 +3795,16 @@
             applyMPLossFromCombat(units, monsterDifficulty);
             
             // === NEW: Apply damage and check for deaths ===
-            const damageResult = applyUnitDamageAndDeath(units, monsterDifficulty);
+            const damageResult = applyUnitDamageAndDeath(units, monsterDifficulty, type);
             
             // Process deaths - permanently remove dead units
             damageResult.deaths.forEach(deathInfo => {
-                eventLog.push(`☠️ ${getUnitDisplayName(deathInfo.unit)} ตายแล้วและไม่กลับมา (เสียเลือด ${deathInfo.hpBefore} HP)`);
+                eventLog.push(`☠️ ${getUnitDisplayName(deathInfo.unit)} ${deathInfo.cause} และตาย (HP ${deathInfo.hpBefore.toFixed(1)} → 0)`);
             });
             
             // Process injured units
             damageResult.injured.forEach(injuryInfo => {
-                eventLog.push(`❌ ${getUnitDisplayName(injuryInfo.unit)} บาดเจ็บจากการสำรวจ (${injuryInfo.damagePercent}% บาดเจ็บ: ${injuryInfo.hpBefore} → ${injuryInfo.hpAfter.toFixed(1)} HP)`);
+                eventLog.push(`❌ ${getUnitDisplayName(injuryInfo.unit)} ${injuryInfo.cause} และบาดเจ็บ (${injuryInfo.damagePercent}% เหลือ ${injuryInfo.hpAfter.toFixed(1)}/${injuryInfo.hpBefore.toFixed(1)} HP)`);
             });
             
             // Use survivors from damage calculation (units with hp > 0)
@@ -3705,42 +3814,21 @@
             survivors.forEach(unit => {
                 const rand = Math.random();
                 if (rand < itemChance) {
-                    // Get available items based on exploration type
-                    let availableItems = SHOP_ITEMS.filter(item => {
-                        if (item.craftOnly || item.type === 'Unit') return false;
-                        // Exclude dungeonOnly items for near, include for around/far
-                        if (item.dungeonOnly && type === 'near') return false;
-                        return true;
-                    });
-                    
-                    // Add bonus chance for MP potions in deeper explorations
-                    if (type === 'around') {
-                        for (let i = 0; i < 3; i++) {
-                            const mpMid = SHOP_ITEMS.find(item => item.id === 'mp_potion_mid');
-                            if (mpMid) availableItems.push(mpMid);
-                        }
-                    } else if (type === 'far') {
-                        for (let i = 0; i < 5; i++) {
-                            const mpHigh = SHOP_ITEMS.find(item => item.id === 'mp_potion_high');
-                            if (mpHigh) availableItems.push(mpHigh);
-                        }
+                    const item = pickExplorationLoot(type);
+                    if (item) {
+                        eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name} ในการสำรวจ`);
+                        rewards.items.push(item.id);
+                    } else {
+                        eventLog.push(`🧐 ${getUnitDisplayName(unit)} ไม่พบสิ่งของที่เหมาะสมในพื้นที่`);
                     }
-                    
-                    if (availableItems.length > 0) {
-                        const item = availableItems[Math.floor(Math.random() * availableItems.length)];
-                        if (item) {
-                            eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name} ในการสำรวจ`);
-                            rewards.items.push(item.id);
-                        }
-                    }
-                } else if (rand < itemChance + 0.2) {
+                } else if (rand < itemChance + 0.18) {
                     const bonus = Math.floor(Math.random() * 200) + 100;
                     rewards.money += bonus;
                     eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
                 } else if (rand < itemChance + 0.4) {
                     eventLog.push(`✓ ${getUnitDisplayName(unit)} สำรวจปลอดภัยและกลับมา`);
                 } else {
-                    eventLog.push(`✓ ${getUnitDisplayName(unit)} สำรวจปลอดภัย`);
+                    eventLog.push(`⚠️ ${getUnitDisplayName(unit)} มีเหตุการณ์เล็กน้อยแต่ยังรอด`);
                 }
             });
             
@@ -3898,52 +3986,146 @@
                 return;
             }
 
+            let professions = [...new Set(selectableUnits.map(u => getProfessionFromTypeId(u.typeId)))];
+            let professionButtons = `<button onclick="filterDungeonUnits('all')" data-filter="all" class="dungeon-profession-btn px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white text-xs rounded-lg font-semibold transition-all">ทั้งหมด</button>`;
+            professions.forEach(prof => {
+                professionButtons += `<button onclick="filterDungeonUnits('${prof}')" data-filter="${prof}" class="dungeon-profession-btn px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-semibold transition-all">${prof}</button>`;
+            });
+
             let modalHTML = `<div id="dungeon-unit-select-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[95] flex items-center justify-center p-4">
-                <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-red-500">
+                <div class="glass-card p-6 rounded-3xl max-w-3xl w-full border-t-4 border-red-500">
                     <h2 class="text-2xl font-bold mb-2">🗡️ เลือกหน่วยเข้าสำรวจดันเจี้ยน</h2>
-                    <p class="text-slate-400 text-sm mb-4">ได้ 3 - 5 คน จะใช้เวลาประมาณ 3-5 นาที</p>
-                    <div class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto mb-4">
-                        ${selectableUnits.map(u => `
-                            <div class="glass-card p-3 rounded-lg border border-slate-700 cursor-pointer hover:border-red-500 transition dungeon-unit-option" data-uid="${u.uid}">
-                                <div class="font-bold text-sm">${getUnitDisplayName(u)}</div>
-                                <div class="text-xs text-slate-400">HP: ${u.hp}/${u.maxHp} ATK: ${u.atk}</div>
-                            </div>
-                        `).join('')}
+                    <p class="text-slate-400 text-sm mb-3">ได้ 3 - 5 คน จะใช้เวลาประมาณ 3-5 นาที</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <input id="dungeon-search-input" type="text" placeholder="ค้นหา: ชื่อ, เลเวล, อาชีพ..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs text-slate-400">ระดับ:</label>
+                            <input id="dungeon-min-level" type="number" min="1" value="1" class="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white"> -
+                            <input id="dungeon-max-level" type="number" min="1" value="999" class="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white">
+                        </div>
                     </div>
+
+                    <div class="mb-3">
+                        <p class="text-xs text-slate-400 mb-2">กรองอาชีพ:</p>
+                        <div class="flex flex-wrap gap-2">${professionButtons}</div>
+                    </div>
+
+                    <div id="dungeon-unit-list" class="h-80 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">
+                    </div>
+
+                    <div id="dungeon-selection-info" class="text-sm text-cyan-300 mt-2 mb-3">เลือกหน่วย 0 คน</div>
+
                     <div class="flex gap-2">
                         <button onclick="document.getElementById('dungeon-unit-select-modal').remove()" class="flex-1 bg-slate-700 text-white py-2 rounded-lg font-bold">ยกเลิก</button>
-                        <button onclick="executeDungeonExploration()" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg font-bold">เข้าสำรวจ</button>
+                        <button onclick="executeDungeonExploration()" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg font-bold">ลงสำรวจ</button>
                     </div>
                 </div>
             </div>`;
-            
+
             document.body.insertAdjacentHTML('beforeend', modalHTML);
-            
-            // Add click handlers for unit selection
-            document.querySelectorAll('.dungeon-unit-option').forEach(el => {
-                el.addEventListener('click', function() {
-                    this.classList.toggle('border-red-500');
-                    this.classList.toggle('bg-red-900/30');
+
+            let dungeonFilter = 'all';
+            let dungeonSearch = '';
+
+            function updateDungeonSelectionInfo() {
+                const checked = document.querySelectorAll('.dungeon-unit-checkbox:checked').length;
+                document.getElementById('dungeon-selection-info').textContent = `เลือกหน่วย ${checked} / 5`; // แสดงเป้าหมาย max5
+            }
+
+            window.filterDungeonUnits = function(profession) {
+                dungeonFilter = profession;
+                document.querySelectorAll('.dungeon-profession-btn').forEach(btn => {
+                    if (btn.getAttribute('data-filter') === profession) {
+                        btn.classList.remove('bg-slate-700', 'hover:bg-slate-600');
+                        btn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+                    } else {
+                        btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                        btn.classList.add('bg-slate-700', 'hover:bg-slate-600');
+                    }
                 });
+                renderDungeonUnitList();
+            };
+
+            function renderDungeonUnitList() {
+                let filtered = selectableUnits.filter(u => u.hp > 0);
+
+                if (dungeonFilter !== 'all') {
+                    filtered = filtered.filter(u => getProfessionFromTypeId(u.typeId) === dungeonFilter);
+                }
+
+                const minLevel = parseInt(document.getElementById('dungeon-min-level').value, 10) || 1;
+                const maxLevel = parseInt(document.getElementById('dungeon-max-level').value, 10) || 999;
+                filtered = filtered.filter(u => u.level >= minLevel && u.level <= maxLevel);
+
+                if (dungeonSearch.length > 0) {
+                    const query = dungeonSearch.toLowerCase();
+                    filtered = filtered.filter(u => {
+                        const name = getUnitDisplayName(u).toLowerCase();
+                        const prof = getProfessionFromTypeId(u.typeId).toLowerCase();
+                        return name.includes(query) || prof.includes(query) || `${u.level}`.includes(query);
+                    });
+                }
+
+                const listContainer = document.getElementById('dungeon-unit-list');
+                if (!listContainer) return;
+
+                if (filtered.length === 0) {
+                    listContainer.innerHTML = '<div class="text-center text-slate-500 py-4">ไม่พบหน่วย</div>';
+                    return;
+                }
+
+                listContainer.innerHTML = filtered.map(u => {
+                    const isChecked = document.querySelectorAll(`.dungeon-unit-checkbox[value="${u.uid}"]:checked`).length > 0;
+                    return `
+                        <label class="flex items-center gap-2 p-2 rounded-lg border ${isChecked ? 'border-emerald-600 bg-emerald-950/20' : 'border-slate-700 hover:border-red-500'} cursor-pointer transition-all">
+                            <input type="checkbox" class="dungeon-unit-checkbox" value="${u.uid}" ${isChecked ? 'checked' : ''}>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-semibold truncate">${getUnitDisplayName(u)}</div>
+                                <div class="text-xs text-slate-400">${getProfessionFromTypeId(u.typeId)} • Lv.${u.level} • HP:${u.hp}/${u.maxHp}</div>
+                            </div>
+                        </label>
+                    `;
+                }).join('');
+
+                document.querySelectorAll('.dungeon-unit-checkbox').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        updateDungeonSelectionInfo();
+                    });
+                });
+
+                updateDungeonSelectionInfo();
+            }
+
+            document.getElementById('dungeon-search-input').addEventListener('input', function() {
+                dungeonSearch = this.value;
+                renderDungeonUnitList();
             });
+
+            document.getElementById('dungeon-min-level').addEventListener('input', renderDungeonUnitList);
+            document.getElementById('dungeon-max-level').addEventListener('input', renderDungeonUnitList);
+
+            filterDungeonUnits('all');
         }
 
         function executeDungeonExploration() {
             const dungeon = state.dungeons.find(d => !d.completed);
             if (!dungeon) return;
 
-            const selectedElements = document.querySelectorAll('.dungeon-unit-option.border-red-500');
-            const selectedUnits = Array.from(selectedElements).map(el => {
-                const uid = el.dataset.uid;
-                return state.units.find(u => u.uid === uid);
-            }).filter(Boolean);
+            const selectedUidArr = Array.from(document.querySelectorAll('.dungeon-unit-checkbox:checked')).map(cb => cb.value);
+            if (selectedUidArr.length === 0) {
+                showToast('กรุณาเลือกหน่วยอย่างน้อย 1 ตัว', 'warning', 2000);
+                return;
+            }
 
+            const selectedUnits = selectedUidArr.map(uid => state.units.find(u => u.uid === uid)).filter(Boolean);
             if (selectedUnits.length === 0) {
                 showToast('กรุณาเลือกหน่วยอย่างน้อย 1 ตัว', 'warning', 2000);
                 return;
             }
 
-            // Remove modal
             const modal = document.getElementById('dungeon-unit-select-modal');
             if (modal) modal.remove();
 
@@ -3952,7 +4134,6 @@
                 state.units = state.units.filter(u => u.uid !== unit.uid);
             });
 
-            // Create active dungeon exploration entry
             const explorationDuration = 180 + Math.random() * 120; // 3-5 minutes
             const dungeonExploration = {
                 id: Date.now(),
@@ -3965,11 +4146,8 @@
                 timerInterval: null
             };
 
-            // Add to active explorations
             if (!window.activeDungeonExplorations) window.activeDungeonExplorations = [];
             window.activeDungeonExplorations.push(dungeonExploration);
-
-            // Start timer
             restartDungeonTimer(dungeonExploration);
 
             saveProfile();
@@ -4041,7 +4219,7 @@
             rewards.money = Math.floor(baseReward * (0.8 + Math.random() * 0.4));
             
             // === NEW: Apply damage and check for deaths in dungeon ===
-            const damageResult = applyUnitDamageAndDeath(exploration.units, 3); // Difficulty 3 = extreme (dungeon)
+            const damageResult = applyUnitDamageAndDeath(exploration.units, 3, 'dungeon'); // Difficulty 3 = extreme (dungeon)
             
             // Process deaths - permanently remove dead units
             damageResult.deaths.forEach(deathInfo => {
@@ -4059,16 +4237,22 @@
             // Generate item findings for survivors only
             survivors.forEach(unit => {
                 const rand = Math.random();
-                if (rand < 0.3) {
-                    const item = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)];
-                    if (item && !item.craftOnly && item.type !== 'Unit') {
+                if (rand < 0.35) {
+                    const item = pickExplorationLoot('dungeon');
+                    if (item) {
                         eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name}`);
                         rewards.items.push(item.id);
+                    } else {
+                        const bonus = Math.floor(Math.random() * 500) + 300;
+                        rewards.money += bonus;
+                        eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus} แทนไอเท็ม`);
                     }
-                } else if (rand < 0.5) {
-                    const bonus = Math.floor(Math.random() * 1000) + 500;
+                } else if (rand < 0.65) {
+                    const bonus = Math.floor(Math.random() * 1200) + 600;
                     rewards.money += bonus;
                     eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
+                } else {
+                    eventLog.push(`✓ ${getUnitDisplayName(unit)} ผ่านด่านและกลับมา`);
                 }
             });
             
@@ -4790,6 +4974,11 @@
                 // Refresh modal if open
                 document.getElementById('inventory-modal').remove();
                 openInventoryModal();
+            }
+            if (document.getElementById('housing-modal')) {
+                // Refresh housing modal in real-time after selling
+                document.getElementById('housing-modal').remove();
+                openHousingModal();
             }
         }
 
