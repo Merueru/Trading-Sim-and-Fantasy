@@ -1202,16 +1202,20 @@
 
         async function savePeerID(peerId) {
             return new Promise(res => {
+                // Save Peer ID per account (use username as key)
+                const key = state.username || "current";
                 const tx = db.transaction("peerID", "readwrite");
-                tx.objectStore("peerID").put({ key: "current", id: peerId, savedAt: new Date().getTime() });
+                tx.objectStore("peerID").put({ key: key, id: peerId, savedAt: new Date().getTime() });
                 tx.oncomplete = () => res();
             });
         }
 
         async function loadPeerID() {
             return new Promise(res => {
+                // Load Peer ID per account (use username as key)
+                const key = state.username || "current";
                 const tx = db.transaction("peerID", "readonly");
-                const req = tx.objectStore("peerID").get("current");
+                const req = tx.objectStore("peerID").get(key);
                 req.onsuccess = () => res(req.result?.id || null);
             });
         }
