@@ -60,7 +60,7 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.3 beta</p>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.4 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -156,7 +156,7 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="text-[10px] text-slate-500">จำนวนเงินต่อไม้ ($)</label>
-                                <input type="number" id="trade-size-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-lg font-mono text-emerald-400 mt-1 outline-none focus:border-blue-500" value="1000">
+                                <input type="number" id="trade-size-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-lg font-mono text-emerald-400 mt-1 outline-none focus:border-blue-500" value="1000" step="0.01" min="0.01">
                                 <div class="flex gap-1 mt-2">
                                     <button onclick="setTradeSize(500)" class="flex-1 text-[9px] bg-slate-800 py-1 rounded">500</button>
                                     <button onclick="setTradeSize(1000)" class="flex-1 text-[9px] bg-slate-800 py-1 rounded">1K</button>
@@ -670,6 +670,56 @@
         </div>
     </div>
 
+    <!-- Bankruptcy Screen Modal -->
+    <div id="bankruptcy-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[999] hidden flex items-center justify-center p-4">
+        <div class="glass-card p-12 rounded-3xl max-w-md w-full text-center border-t-4 border-rose-500 bg-rose-950/20">
+            <div class="mb-6 text-6xl">💔</div>
+            <h2 class="text-3xl font-bold text-rose-400 mb-2">คุณล้มละลาย</h2>
+            <p class="text-slate-300 text-sm mb-2">เงินของคุณหมดสิ้นแล้ว</p>
+            <p class="text-slate-400 text-xs mb-8">ไม่มีเงิน ไม่มีของที่ขายได้ คุณไม่สามารถทำกิจกรรมใดๆ ได้</p>
+            
+            <div class="space-y-3 mb-6">
+                <div class="bg-slate-800/50 p-3 rounded-lg">
+                    <p class="text-[10px] text-slate-500 mb-1">ทางออก:</p>
+                    <ul class="text-[11px] text-slate-400 space-y-1">
+                        <li>• ยกเลิก - ดูเพื่อนคนอื่นเล่นต่อ</li>
+                        <li>• เริ่มใหม่ - รีเซ็ตเกมทั้งหมด</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="closeGameOverModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold">ยกเลิก</button>
+                <button onclick="resetGameState()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-3 rounded-xl font-bold">เริ่มใหม่</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Death Screen Modal -->
+    <div id="death-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[999] hidden flex items-center justify-center p-4">
+        <div class="glass-card p-12 rounded-3xl max-w-md w-full text-center border-t-4 border-red-500 bg-red-950/20">
+            <div class="mb-6 text-6xl">💀</div>
+            <h2 class="text-3xl font-bold text-red-400 mb-2">คุณตายแล้ว</h2>
+            <p class="text-slate-300 text-sm mb-2">กำลังชีวิตของคุณหมดลง</p>
+            <p class="text-slate-400 text-xs mb-8">HP เหลือ 0 คุณไม่สามารถทำกิจกรรมใดๆ ได้</p>
+            
+            <div class="space-y-3 mb-6">
+                <div class="bg-slate-800/50 p-3 rounded-lg">
+                    <p class="text-[10px] text-slate-500 mb-1">ทางออก:</p>
+                    <ul class="text-[11px] text-slate-400 space-y-1">
+                        <li>• ยกเลิก - ดูเพื่อนคนอื่นเล่นต่อ</li>
+                        <li>• เริ่มใหม่ - รีเซ็ตเกมทั้งหมด (คืนเงินเดิม)</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="closeGameOverModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold">ยกเลิก</button>
+                <button onclick="resetGameState()" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold">เริ่มใหม่</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Core ---
         let db;
@@ -916,6 +966,7 @@
             positions: [],
             currentAsset: 'BTCUSDT',
             currentPrice: 0,
+            lastKnownPrices: {}, // { assetId: price } - Store last known prices for all assets
             candlesticks: [],
             chart: null,
             peer: null,
@@ -944,7 +995,8 @@
             capturedUntil: 0, // Timestamp when capture effect ends (0 = not captured)
             dungeons: [], // { id, level, depth, discovered, scoutedLevel, exploringUnits: [] , rewards: [] }
             selectedLoanAmount: null, // Remember which loan amount button was clicked
-            selectedUnitsForAction: new Set() // Store UIDs of units selected for multi-action
+            selectedUnitsForAction: new Set(), // Store UIDs of units selected for multi-action
+            gameOverState: null // null = playing, 'bankrupt' = คุณล้มละลาย, 'dead' = คุณตายแล้ว
         };
 
         // --- Database ---
@@ -983,23 +1035,7 @@
                 username: state.username, 
                 balance: state.balance,
                 positions: state.positions,
-                loans: state.loans,
-                loanAutoPayCount: state.loanAutoPayCount || 0,
-                repaymentCount: state.repaymentCount,
-                inventory: state.inventory,
-                stats: state.stats,
-                units: state.units,
-                shopStock: state.shopStock,
-                multiplierLevel: state.multiplierLevel,
-                actionCooldowns: state.actionCooldowns,
-                capturedUntil: state.capturedUntil,
-                dungeons: state.dungeons,
-                activeExplorations: explorations
-            });
-            tx.objectStore("accounts").put({
-                username: state.username,
-                balance: state.balance,
-                positions: state.positions,
+                lastKnownPrices: state.lastKnownPrices,
                 loans: state.loans,
                 loanAutoPayCount: state.loanAutoPayCount || 0,
                 repaymentCount: state.repaymentCount,
@@ -1012,6 +1048,26 @@
                 capturedUntil: state.capturedUntil,
                 dungeons: state.dungeons,
                 activeExplorations: explorations,
+                gameOverState: state.gameOverState
+            });
+            tx.objectStore("accounts").put({
+                username: state.username,
+                balance: state.balance,
+                positions: state.positions,
+                lastKnownPrices: state.lastKnownPrices,
+                loans: state.loans,
+                loanAutoPayCount: state.loanAutoPayCount || 0,
+                repaymentCount: state.repaymentCount,
+                inventory: state.inventory,
+                stats: state.stats,
+                units: state.units,
+                shopStock: state.shopStock,
+                multiplierLevel: state.multiplierLevel,
+                actionCooldowns: state.actionCooldowns,
+                capturedUntil: state.capturedUntil,
+                dungeons: state.dungeons,
+                activeExplorations: explorations,
+                gameOverState: state.gameOverState,
                 lastPlayed: new Date().getTime()
             });
         }
@@ -1180,13 +1236,10 @@
         }
 
         function checkGameOver() {
-            if (state.stats.hp <= 0) {
-                showAlert("GAME OVER", "คุณบาดเจ็บสาหัส! เสียเงินค่ารักษา $2000", "skull");
-                state.balance = Math.max(0, state.balance - 2000);
-                state.stats.hp = 20;
+            if (state.stats.hp <= 0 && state.gameOverState !== 'dead') {
+                state.stats.hp = 0; // Keep HP at 0, don't auto-reset
+                showDeathScreen(); // Show death screen instead
                 saveProfile();
-                updatePortfolioUI();
-                updateStatsUI();
             }
         }
 
@@ -1219,6 +1272,9 @@
                 const data = await res.json();
                 const newPrice = parseFloat(data.price);
 
+                // Store last known price for current asset
+                state.lastKnownPrices[symbol] = newPrice;
+
                 if (newPrice !== state.currentPrice) {
                     state.currentPrice = newPrice;
                     const last = state.candlesticks[state.candlesticks.length - 1];
@@ -1230,18 +1286,66 @@
             } catch (e) {
                 console.error("Tick fetch error:", e);
             }
+
+            // Fetch prices for all non-current positions
+            if (state.positions && state.positions.length > 0) {
+                const uniqueAssets = new Set(state.positions.map(p => p.asset).filter(a => a !== symbol));
+                
+                for (const asset of uniqueAssets) {
+                    const isFutures = FUTURES_ASSETS.includes(asset);
+                    const tickerEndpoint = isFutures
+                        ? `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${asset}`
+                        : `https://api.binance.com/api/v3/ticker/price?symbol=${asset}`;
+                    
+                    try {
+                        const res = await fetch(tickerEndpoint);
+                        if (res.ok) {
+                            const data = await res.json();
+                            const price = parseFloat(data.price);
+                            state.lastKnownPrices[asset] = price;
+                        }
+                    } catch (e) {
+                        // Silently fail for non-current assets
+                    }
+                }
+                
+                // Update portfolio UI to show updated prices
+                updatePortfolioUI();
+            }
         }
         // --- Trading ---
         function formatNumber(num) {
-            if (num >= 1000000) {
-                return (num / 1000000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'm';
-            } else if (num >= 1000) {
-                return (num / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'k';
+            // Format numbers with K, M, B suffixes - only for numbers >= 100,000
+            if (num >= 1000000000) {
+                return (num / 1000000000).toFixed(1) + 'b';
+            } else if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'm';
+            } else if (num >= 100000) {
+                return (num / 1000).toFixed(0) + 'k';
+            }
+            // For numbers < 100,000, use full with comma formatting
+            return Math.floor(num).toLocaleString();
+        }
+        
+        function formatBalance(num) {
+            // Balance always shows 2 decimal places
+            return Math.floor(num * 100) / 100;
+        }
+        
+        function formatNumberWithHover(num) {
+            // Create a tooltip element with full number
+            if (num >= 1000) {
+                const formatted = formatNumber(num);
+                const fullNum = num.toLocaleString();
+                return `<span title="${fullNum}" style="cursor: help; border-bottom: 1px dotted;">${formatted}</span>`;
             }
             return num.toLocaleString();
         }
         
-        function setTradeSize(v) { document.getElementById('trade-size-input').value = v === 'ALL' ? Math.floor(state.balance) : v; }
+        function setTradeSize(v) { 
+            document.getElementById('trade-size-input').value = v === 'ALL' ? Math.floor(state.balance * 100) / 100 : v;
+        }
+
         function setMultiplier(v) { 
             let value = parseFloat(v) || 1.0;
             // Cap multiplier at current level
@@ -1250,7 +1354,8 @@
         }
 
         function executeTrade(type) {
-            const size = parseFloat(document.getElementById('trade-size-input').value);
+            const sizeInput = document.getElementById('trade-size-input').value;
+            const size = parseFloat(sizeInput);
             let mult = parseFloat(document.getElementById('multiplier-input').value) || 1.0;
             // Cap multiplier at current level
             mult = Math.min(Math.max(mult, 1), state.multiplierLevel);
@@ -1281,11 +1386,11 @@
             if (isLiquidation) {
                 state.balance += Math.max(0, p.size + pnl);
                 state.positions.splice(idx, 1);
-                log(`LIQUIDATED ${p.asset} | Loss: $${pnl.toFixed(2)}`, "text-rose-600 font-bold");
+                log(`LIQUIDATED ${p.asset} | Loss: $${formatNumber(pnl)}`, "text-rose-600 font-bold");
             } else {
                 state.balance += (p.size + pnl);
                 state.positions.splice(idx, 1);
-                log(`Closed ${p.asset} | PnL: $${pnl.toFixed(2)}`, pnl >= 0 ? "text-emerald-400" : "text-rose-400");
+                log(`Closed ${p.asset} | PnL: $${formatNumber(pnl)}`, pnl >= 0 ? "text-emerald-400" : "text-rose-400");
             }
             broadcastBalance();
             saveProfile();
@@ -1332,7 +1437,7 @@
             const cost = getMultiplierUpgradeCost(state.multiplierLevel);
             
             if (state.balance < cost) {
-                showAlert("เงินไม่พอ", `ต้องใช้เงิน $${cost.toLocaleString()} เพื่ออัปเกรด`, "alert-circle");
+                showAlert("เงินไม่พอ", `ต้องใช้เงิน $${formatNumber(cost)} เพื่ออัปเกรด`, "alert-circle");
                 return;
             }
             
@@ -1381,8 +1486,8 @@
                 const costDisplay = document.getElementById('next-upgrade-cost-display');
                 
                 if (upgradeBtn) upgradeBtn.disabled = false;
-                if (upgradeTxt) upgradeTxt.innerText = `อัปเกรดตัวคูณ ($${nextCost.toLocaleString()})`;
-                if (costDisplay) costDisplay.innerHTML = `<p>ต่อไป: ${nextLevel}x</p><p class=\"text-blue-300 font-bold\">$${nextCost.toLocaleString()}</p>`;
+                if (upgradeTxt) upgradeTxt.innerText = `อัปเกรดตัวคูณ ($${formatNumber(nextCost)})`;
+                if (costDisplay) costDisplay.innerHTML = `<p>ต่อไป: ${nextLevel}x</p><p class=\"text-blue-300 font-bold\" title=\"$${nextCost.toLocaleString()}\" style=\"cursor: help;\">$${formatNumber(nextCost)}</p>`;
             } else {
                 const upgradeBtn = document.getElementById('upgrade-multiplier-btn');
                 const upgradeTxt = document.getElementById('upgrade-multiplier-text');
@@ -1404,7 +1509,7 @@
 
         function updateLoanUI() {
             const limit = getCreditLimit();
-            document.getElementById('credit-limit-display').innerText = limit >= 999999 ? 'Unlimited' : `$${limit.toLocaleString()}`;
+            document.getElementById('credit-limit-display').innerText = limit >= 999999 ? 'Unlimited' : `$${formatNumber(limit)}`;
             
             // Loan Options
             const opts = document.getElementById('loan-options');
@@ -1418,7 +1523,7 @@
                     // Check if this is the selected amount and apply active styling
                     const isActive = state.selectedLoanAmount === amt;
                     const activeClass = isActive ? 'bg-amber-500 text-white border-amber-400 hover:bg-amber-400' : 'bg-slate-800 hover:bg-amber-500/20 hover:text-amber-400 border-slate-700';
-                    opts.innerHTML += `<button onclick="selectLoanOption(${amt}, this)" class="loan-opt-btn ${activeClass} py-2 rounded-xl text-sm font-bold border transition-all">$${amt.toLocaleString()}</button>`;
+                    opts.innerHTML += `<button onclick="selectLoanOption(${amt}, this)" class="loan-opt-btn ${activeClass} py-2 rounded-xl text-sm font-bold border transition-all" title="$${amt.toLocaleString()}" style="cursor: help;">$${formatNumber(amt)}</button>`;
                 }
             });
             
@@ -1441,8 +1546,8 @@
                     <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl">
                         <div class="flex justify-between items-center mb-2">
                             <div>
-                                <p class="text-xs text-slate-400">ต้น: $${l.principal.toLocaleString()}</p>
-                                <p class="text-sm font-bold text-rose-400">ยอดคืน: $${totalDue.toLocaleString(undefined, {maximumFractionDigits:0})} (ดอก: $${currentInterest.toLocaleString(undefined, {maximumFractionDigits:0})})</p>
+                                <p class="text-xs text-slate-400" title="$${l.principal.toLocaleString()}" style="cursor: help;">ต้น: $${formatNumber(l.principal)}</p>
+                                <p class="text-sm font-bold text-rose-400" title="ยอดคืน $${totalDue.toLocaleString()} ดอก $${currentInterest.toLocaleString()}" style="cursor: help;">ยอดคืน: $${formatNumber(totalDue)} (ดอก: $${formatNumber(currentInterest)})</p>
                             </div>
                             <button onclick="repayLoan(${l.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">จ่ายคืน</button>
                         </div>
@@ -1510,8 +1615,8 @@
                         active.forEach(l => l.paid = true);
                         state.loanAutoPayCount = 0;
                         
-                        log(`💀 ระบบชำระหนี้บังคับ -$${toCollect.toLocaleString()}`, "text-rose-500 font-bold");
-                        showToast(`💀 ระบบชำระหนี้บังคับ! เสียเงิน $${toCollect.toLocaleString()}`, "error", 3000);
+                        log(`💀 ระบบชำระหนี้บังคับ -$${formatNumber(toCollect)}`, "text-rose-500 font-bold");
+                        showToast(`💀 ระบบชำระหนี้บังคับ! เสียเงิน $${formatNumber(toCollect)}`, "error", 3000);
                     }
                 }
             });
@@ -1546,8 +1651,8 @@
             saveProfile();
             updateLoanUI();
             updatePortfolioUI();
-            log(`กู้เงินสำเร็จ +$${amt.toLocaleString()}`, "text-amber-400");
-            showToast(`กู้เงิน $${amt.toLocaleString()} เรียบร้อย`, "success", 2000);
+            log(`กู้เงินสำเร็จ +$${formatNumber(amt)}`, "text-amber-400");
+            showToast(`กู้เงิน $${formatNumber(amt)} เรียบร้อย`, "success", 2000);
         }
 
         function repayLoan(id) {
@@ -1565,7 +1670,7 @@
             saveProfile();
             updateLoanUI();
             updatePortfolioUI();
-            log(`ชำระหนี้ -$${due.toLocaleString(undefined,{maximumFractionDigits:0})}`, "text-emerald-400");
+            log(`ชำระหนี้ -$${formatNumber(due)}`, "text-emerald-400");
         }
 
         function payLoanInterest(id) {
@@ -1589,8 +1694,8 @@
             saveProfile();
             updateLoanUI();
             updatePortfolioUI();
-            log(`จ่ายดอกเบี้ย -$${interestAmount.toLocaleString(undefined,{maximumFractionDigits:0})}`, "text-blue-400");
-            showToast(`จ่ายดอกเบี้ย $${interestAmount.toLocaleString(undefined,{maximumFractionDigits:0})} เรียบร้อย (${loan.interestPayCount}/4)`, "success", 2000);
+            log(`จ่ายดอกเบี้ย -$${formatNumber(interestAmount)}`, "text-blue-400");
+            showToast(`จ่ายดอกเบี้ย $${formatNumber(interestAmount)} เรียบร้อย (${loan.interestPayCount}/4)`, "success", 2000);
         }
 
         // --- RPG System ---
@@ -1647,8 +1752,8 @@
             document.getElementById('mini-energy').innerText = `${Math.floor(state.stats.energy)}`;
             document.getElementById('bar-energy').style.width = `${(state.stats.energy / state.stats.maxEnergy) * 100}%`;
 
-            document.getElementById('stat-atk').innerText = baseAtk;
-            document.getElementById('stat-def').innerText = baseDef;
+            document.getElementById('stat-atk').innerText = formatNumber(baseAtk);
+            document.getElementById('stat-def').innerText = formatNumber(baseDef);
             
             // Render Units with Category Filtering
             const uList = document.getElementById('unit-list');
@@ -1718,18 +1823,18 @@
                         return `
                         <div class="unit-card bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col gap-2 group relative" data-unit-name="${displayName}" data-unit-type="${origType}" data-unit-level="${u.level}" data-search-text="${searchText}" data-uid="${u.uid}">
                             <div class="flex justify-between items-center">
-                                <input type="checkbox" class="unit-action-checkbox h-4 w-4 cursor-pointer mr-2 opacity-0 group-hover:opacity-100 transition-opacity" data-uid="${u.uid}" onchange="toggleUnitForAction(${u.uid}, this)">
+                                <input type="checkbox" class="unit-action-checkbox h-4 w-4 cursor-pointer mr-2" data-uid="${u.uid}" onchange="toggleUnitForAction(${u.uid}, this)">
                                 <div onclick="openUnitRenameModal(${u.uid})" class="cursor-pointer hover:text-blue-400 transition-colors flex-1">
                                     <span class="font-bold text-sm text-indigo-400">${displayName}</span>
                                 </div>
-                                <span class="text-[10px] text-rose-400">-$${u.upkeep}/min</span>
+                                <span class="text-[10px] text-rose-400" title="ค่าจ้าง ${u.upkeep}/นาที" style="cursor: help;">-$${formatNumber(u.upkeep)}/min</span>
                             </div>
                             <div class="flex justify-between items-start">
-                                <div class="flex gap-2 text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg">
-                                    <span>⚔️ ${u.atk}</span>
-                                    <span>🛡️ ${u.def}</span>
-                                    ${u.spell ? `<span>✨ ${u.spell}</span>` : ''}
-                                    ${u.heal ? `<span>❤️ ${u.heal}</span>` : ''}
+                                <div class="flex gap-2 text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg" title="⚔️ ${u.atk} ⚔️ ${u.def}" style="cursor: help;">
+                                    <span>⚔️ ${formatNumber(u.atk)}</span>
+                                    <span>🛡️ ${formatNumber(u.def)}</span>
+                                    ${u.spell ? `<span title="✨ ${u.spell}" style="cursor: help;">✨ ${formatNumber(u.spell)}</span>` : ''}
+                                    ${u.heal ? `<span title="❤️ ${u.heal}" style="cursor: help;">❤️ ${formatNumber(u.heal)}</span>` : ''}
                                 </div>
                                 <button onclick="toggleDefender(${u.uid})" class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${u.isDefender ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}" title="ตั้งป้องกันบ้าน">${u.isDefender ? 'ตั้งรับ' : 'ว่าง'}</button>
                             </div>
@@ -1753,7 +1858,7 @@
                     }).join('');
                 }
             }
-            document.getElementById('total-upkeep').innerText = `$${upkeepTotal}`;
+            document.getElementById('total-upkeep').innerText = `$${formatNumber(upkeepTotal)}`;
             
             // Update unit capacity display
             const currentCapacity = getCurrentUnitCapacity();
@@ -1775,14 +1880,26 @@
         }
 
         function healSelf() {
-            if(state.balance < 500) return showAlert("No Money", "เงินไม่พอรักษา", "frown");
-            if(state.stats.hp >= state.stats.maxHp) return showAlert("Full Health", "เลือดเต็มอยู่แล้ว", "smile");
-            state.balance -= 500;
-            state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + 20);
+            const damageTaken = state.stats.maxHp - state.stats.hp;
+            if (damageTaken <= 0) return showAlert("Full Health", "เลือดเต็มอยู่แล้ว", "smile");
+            
+            // Cost formula: base 50 per damage taken + price fluctuation (±20%)
+            const baseCost = damageTaken * 50;
+            const priceFluctuation = 0.8 + Math.random() * 0.4; // Random between 0.8 and 1.2
+            const healCost = Math.floor(baseCost * priceFluctuation);
+            
+            if (state.balance < healCost) {
+                return showAlert("No Money", `เงินไม่พอรักษา (ต้อง $${formatNumber(healCost)})`, "frown");
+            }
+            
+            const healAmount = Math.ceil(damageTaken * 0.8); // Heal 80% of damage taken
+            state.balance -= healCost;
+            state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + healAmount);
             saveProfile();
             updateStatsUI();
             updatePortfolioUI();
-            showToast("รักษาตัวเรียบร้อย (+20 HP)", "success", 2000);
+            log(`รักษาตัวเรียบร้อย +${formatNumber(healAmount)} HP (-$${formatNumber(healCost)})`, "text-emerald-400");
+            showToast(`รักษาตัวเรียบร้อย +${formatNumber(healAmount)} HP (-$${formatNumber(healCost)})`, "success", 2000);
         }
 
         function openHealTypeModal() {
@@ -2327,19 +2444,30 @@
         }
 
         function getTrainingCost(unit) {
-            // Calculate training cost based on unit tier with level scaling
-            // Cost increases every 10 levels
-            let baseCost = unit.level * 200;
+            // Calculate training cost based on unit tier with LINEAR growth, not exponential
+            // Formula: (base + levelMultiplier * level) * 10
+            let baseCost = 10; // Base cost per level
+            let levelMultiplier = 1; // Cost increase per level
+            
             if (unit.typeId === 'villager') {
-                baseCost = 10 * (Math.floor((unit.level - 1) / 10) + 1); // 10, 20, 30, 40...
+                baseCost = 10;
+                levelMultiplier = 0.5; // 10 + (0.5 * level) -> Level 100 = 60
             } else if (unit.typeId === 'recruit') {
-                baseCost = 15 * (Math.floor((unit.level - 1) / 10) + 1); // 15, 30, 45, 60...
+                baseCost = 15;
+                levelMultiplier = 1; // 15 + (1 * level) -> Level 100 = 115
             } else if (unit.typeId === 'thief') {
-                baseCost = 12 * (Math.floor((unit.level - 1) / 10) + 1); // 12, 24, 36, 48...
-            } else if (unit.typeId === 'adventurer_f' || unit.typeId === 'adventurer_e') {
-                baseCost = unit.level * 50; // Cheaper ranked units
+                baseCost = 12;
+                levelMultiplier = 0.8; // 12 + (0.8 * level) -> Level 100 = 92
+            } else if (unit.typeId && unit.typeId.includes('adventurer')) {
+                baseCost = 20;
+                levelMultiplier = 1.5; // 20 + (1.5 * level) -> Level 100 = 170
+            } else {
+                // Normal units (warrior, mage, priest, paladin, etc)
+                baseCost = 25;
+                levelMultiplier = 2; // 25 + (2 * level) -> Level 100 = 225
             }
-            return baseCost;
+            
+            return Math.floor(baseCost + (levelMultiplier * unit.level));
         }
 
         function trainUnit(uid) {
@@ -2351,20 +2479,38 @@
             state.balance -= cost;
             u.level++;
             
-            // Determine stat growth multiplier based on unit type
-            let statGrowthMultiplier = 1.0; // Normal units
-            if (u.typeId === 'villager' || u.typeId === 'recruit' || u.typeId === 'thief') {
-                statGrowthMultiplier = 0.3; // Weak units grow much slower (only 0.3x stats)
+            // Stat growth: Fixed + Small Percentage (not massive percentage growth)
+            // Weak units (villager/recruit/thief) grow slowly with mostly fixed increases
+            let atkIncrease, defIncrease, healIncrease = 0, spellIncrease = 0;
+            
+            if (u.typeId === 'villager') {
+                // Villagers: Very slow growth (mostly fixed)
+                atkIncrease = 1 + Math.floor(Math.random() * 1); // +1-2 ATK per level
+                defIncrease = 1 + Math.floor(Math.random() * 1); // +1 DEF per level
+            } else if (u.typeId === 'recruit') {
+                // Recruits: Slow growth
+                atkIncrease = 2 + Math.floor(Math.random() * 2); // +2-4 ATK per level
+                defIncrease = 1 + Math.floor(Math.random() * 2); // +1-3 DEF per level
+            } else if (u.typeId === 'thief') {
+                // Thieves: Slow-medium growth
+                atkIncrease = 3 + Math.floor(Math.random() * 2); // +3-5 ATK per level
+                defIncrease = 1 + Math.floor(Math.random() * 1); // +1-2 DEF per level
+            } else if (u.typeId && u.typeId.includes('adventurer')) {
+                // Adventurers: Medium growth
+                atkIncrease = 4 + Math.floor(Math.random() * 3); // +4-7 ATK per level
+                defIncrease = 2 + Math.floor(Math.random() * 2); // +2-4 DEF per level
+            } else {
+                // Normal units (warrior, mage, priest, etc): Medium growth
+                atkIncrease = 5 + Math.floor(Math.random() * 3); // +5-8 ATK per level
+                defIncrease = 2 + Math.floor(Math.random() * 3); // +2-5 DEF per level
+                
+                // Mages/Priests get spell growth
+                if (u.spell) spellIncrease = 4 + Math.floor(Math.random() * 3); // +4-7 SPELL per level
+                if (u.heal) healIncrease = 3 + Math.floor(Math.random() * 3); // +3-6 HEAL per level
             }
             
-            // Add stat ranges (±10-15%) with multiplier for weak units
-            const atkIncrease = Math.floor((u.atk * 0.15 * statGrowthMultiplier) + (Math.random() * (u.atk * 0.1 * statGrowthMultiplier)));
-            const defIncrease = Math.floor((u.def * 0.1 * statGrowthMultiplier) + (Math.random() * (u.def * 0.1 * statGrowthMultiplier)));
-            const healIncrease = u.heal ? Math.floor((u.heal * 0.08 * statGrowthMultiplier) + (Math.random() * (u.heal * 0.12 * statGrowthMultiplier))) : 0;
-            const spellIncrease = u.spell ? Math.floor((u.spell * 0.1 * statGrowthMultiplier) + (Math.random() * (u.spell * 0.1 * statGrowthMultiplier))) : 0;
-            
-            u.atk += Math.max(1, atkIncrease);
-            u.def += Math.max(1, defIncrease);
+            u.atk += atkIncrease;
+            u.def += defIncrease;
             if (u.heal) u.heal += Math.max(1, healIncrease);
             if (u.spell) u.spell += Math.max(1, spellIncrease);
             
@@ -2897,6 +3043,32 @@
                 state.shopPrices[item.id] = newPrice;
             });
             if(state.activeScreen === 'shop-screen') renderShopUI();
+            if(document.getElementById('inventory-modal')) updateInventoryModalPrices();
+        }
+
+        function updateInventoryModalPrices() {
+            const modal = document.getElementById('inventory-modal');
+            if (!modal) return;
+            
+            state.inventory.forEach(inv => {
+                const itemEl = document.getElementById(`item-${inv.uid}`);
+                if (itemEl) {
+                    const itemDef = SHOP_ITEMS.find(i => i.id === inv.itemId);
+                    if (itemDef) {
+                        const sellPrice = calculateSellPrice(inv.itemId, itemDef.basePrice);
+                        const priceColor = sellPrice > itemDef.basePrice ? 'text-emerald-400' : 
+                                          sellPrice >= itemDef.basePrice * 0.75 ? 'text-yellow-400' : 'text-orange-400';
+                        const priceLabel = sellPrice > itemDef.basePrice ? `(+${(sellPrice - itemDef.basePrice).toLocaleString()})` :
+                                          sellPrice >= itemDef.basePrice * 0.75 ? '' : `(-${(itemDef.basePrice - sellPrice).toLocaleString()})`;
+                        
+                        const priceP = itemEl.querySelector('.text-right p');
+                        if(priceP) {
+                            priceP.className = `${priceColor} font-bold`;
+                            priceP.innerHTML = `$${sellPrice.toLocaleString()} <span class="text-[10px]">${priceLabel}</span>`;
+                        }
+                    }
+                }
+            });
         }
 
         function restockShop() {
@@ -3050,7 +3222,7 @@
                     </div>
                     <div class="mt-3">
                         <h4 class="font-bold text-sm">${item.name}</h4>
-                        <p class="text-lg font-mono font-bold ${color}">$${price.toLocaleString(undefined, {maximumFractionDigits:0})}</p>
+                        <p class="text-lg font-mono font-bold ${color}" title="$${price.toLocaleString(undefined, {maximumFractionDigits:0})}" style="cursor: help;">$${formatNumber(price)}</p>
                     </div>
                     <button onclick="buyItem('${item.id}')" ${stock <= 0 ? 'disabled' : ''} class="mt-3 w-full py-2 ${stock <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-800 hover:bg-purple-600 text-white'} rounded-lg text-xs font-bold transition-colors">${stock <= 0 ? 'หมด' : 'ซื้อเลย'}</button>
                 </div>`;
@@ -3072,7 +3244,7 @@
                     const sellPrice = itemDef.cursed ? -500 : calculateSellPrice(inv.itemId, itemDef.basePrice);
                     totalVal += sellPrice > 0 ? sellPrice : 0;
                     
-                    const sellText = itemDef.cursed ? `ทิ้ง (เสียค่าปรับ $500)` : `ขาย $${sellPrice.toLocaleString()}`;
+                    const sellText = itemDef.cursed ? `ทิ้ง (เสียค่าปรับ $500)` : `ขาย $${formatNumber(sellPrice)}`;
                     const sellColor = itemDef.cursed ? 'bg-rose-900/30 text-rose-400 hover:bg-rose-600' : 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-600';
                     
                     // Generate Use Button if consumable
@@ -3090,7 +3262,7 @@
                         <div class="p-2 bg-slate-800 rounded-lg text-slate-400"><i data-lucide="${itemDef.icon}" class="w-4 h-4"></i></div>
                         <div class="flex-1 min-w-0">
                             <p class="text-xs font-bold truncate ${itemDef.cursed ? 'text-rose-400' : ''}">${itemDef.name}</p>
-                            <p class="text-[10px] text-slate-500">ซื้อมา: $${inv.purchasePrice.toLocaleString()}</p>
+                            <p class="text-[10px] text-slate-500" title="ซื้อมา: $${inv.purchasePrice}" style="cursor: help;">ซื้อมา: $${formatNumber(inv.purchasePrice)}</p>
                         </div>
                         <div class="flex flex-col gap-1">
                             <button onclick="sellItem('${inv.uid}')" class="px-2 py-1 ${sellColor} text-[9px] rounded hover:text-white">${sellText}</button>
@@ -3098,7 +3270,7 @@
                         </div>
                     </div>`;
                 }).join('');
-                document.getElementById('inventory-value').innerText = `$${totalVal.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+                document.getElementById('inventory-value').innerText = `$${formatNumber(totalVal)}`;
             }
             lucide.createIcons();
         }
@@ -3129,19 +3301,20 @@
             const itemDef = SHOP_ITEMS.find(i => i.id === itemId);
 
             if (state.balance < price) return showAlert("No Money", "เงินไม่พอซื้อไอเทมนี้", "frown");
-            state.balance -= price;
-            state.shopStock[itemId]--;
             
             if (itemDef.isUnit) {
                 // Check unit capacity first
                 const currentCapacity = getCurrentUnitCapacity();
                 if (state.units.length >= currentCapacity) {
-                    // Revert the purchase
-                    state.balance += price;
-                    state.shopStock[itemId]++;
-                    return showAlert("ขึ้นที่อยู่เต็ม", `จำนวนหน่วยรบเต็มแล้ว\n\nความจุปัจจุบัน: ${state.units.length}/${currentCapacity}\n\nโปรดซื้อบ้านหรือที่อยู่เพิ่มเติม`, "home");
+                    return showAlert("ที่อยู่เต็ม", `จำนวนหน่วยรบเต็มแล้ว\n\nความจุปัจจุบัน: ${state.units.length}/${currentCapacity}\n\nโปรดซื้อบ้านหรือที่อยู่เพิ่มเติม`, "home");
                 }
+            }
+
+            // Deduct balance and stock only after checks pass
+            state.balance -= price;
+            state.shopStock[itemId]--;
                 
+            if (itemDef.isUnit) {
                 let newUnit;
                 // Check for ranked units
                 if (itemDef.rank && itemDef.levelRange) {
@@ -3160,6 +3333,18 @@
                     const atkVariance = Math.floor(atkBase * (0.1 + Math.random() * 0.1));
                     const defVariance = Math.floor(defBase * (0.1 + Math.random() * 0.1));
                     
+                    // Random extra stats (Magic/Heal) for adventurers/ranked units - Task 3
+                    let spellPower = itemDef.baseStats.spell || 0;
+                    let healPower = itemDef.baseStats.heal ? Math.floor(itemDef.baseStats.heal + (level * 2)) : 0;
+                    
+                    // 15% chance to gain ability if not present (Randomized)
+                    if (!spellPower && Math.random() < 0.15) {
+                        spellPower = Math.floor((Math.random() * 5) + (level * 0.3)); // Low initial power
+                    }
+                    if (!healPower && Math.random() < 0.15) {
+                        healPower = Math.floor((Math.random() * 5) + (level * 0.3)); // Low initial power
+                    }
+
                     newUnit = {
                         uid: Date.now() + Math.random(),
                         typeId: itemId,
@@ -3168,8 +3353,8 @@
                         rank: itemDef.rank,
                         atk: atkBase + atkVariance,
                         def: defBase + defVariance,
-                        heal: itemDef.baseStats.heal ? Math.floor(itemDef.baseStats.heal + (level * 2)) : 0,
-                        spell: itemDef.baseStats.spell || 0,
+                        heal: healPower,
+                        spell: spellPower,
                         upkeep: Math.floor(itemDef.baseStats.upkeep + (level * upkeepPerLevel)),
                         isDefender: false
                     };
@@ -3178,8 +3363,27 @@
                     // Add stat variance (±10-20% range)
                     const atkVariance = Math.floor(itemDef.baseStats.atk * (0.1 + Math.random() * 0.2));
                     const defVariance = Math.floor(itemDef.baseStats.def * (0.1 + Math.random() * 0.2));
-                    const healBase = itemDef.baseStats.heal || 0;
-                    const healVariance = healBase > 0 ? Math.floor(healBase * (0.1 + Math.random() * 0.2)) : 0;
+                    
+                    // Random chance for units to have spell/heal abilities even if they don't normally
+                    let spellPower = itemDef.baseStats.spell || 0;
+                    let healPower = itemDef.baseStats.heal || 0;
+                    
+                    // 10% chance to gain a random ability if it doesn't have one
+                    if (!spellPower && Math.random() < 0.1) {
+                        spellPower = Math.floor(3 + Math.random() * 5); // Random spell power 3-8
+                    } else if (spellPower > 0) {
+                        // Add variance to existing spell power
+                        const spellVariance = Math.floor(spellPower * (0.1 + Math.random() * 0.2));
+                        spellPower = spellPower + spellVariance;
+                    }
+                    
+                    if (!healPower && Math.random() < 0.12) {
+                        healPower = Math.floor(2 + Math.random() * 4); // Random heal power 2-6
+                    } else if (healPower > 0) {
+                        // Add variance to existing heal power
+                        const healVariance = Math.floor(healPower * (0.1 + Math.random() * 0.2));
+                        healPower = healPower + healVariance;
+                    }
                     
                     newUnit = { 
                         uid: Date.now() + Math.random(), 
@@ -3188,8 +3392,8 @@
                         level: 1, 
                         atk: itemDef.baseStats.atk + atkVariance, 
                         def: itemDef.baseStats.def + defVariance, 
-                        heal: healBase + healVariance, 
-                        spell: itemDef.baseStats.spell || 0,
+                        heal: healPower > 0 ? healPower : 0, 
+                        spell: spellPower > 0 ? spellPower : 0,
                         upkeep: itemDef.baseStats.upkeep,
                         isDefender: false
                     };
@@ -3245,6 +3449,16 @@
             const inv = state.inventory[idx];
             const itemDef = SHOP_ITEMS.find(i => i.id === inv.itemId);
             
+            // Check housing capacity before selling
+            if (itemDef.unitCapacity) {
+                const currentCap = getCurrentUnitCapacity();
+                const newCap = currentCap - itemDef.unitCapacity;
+                if (state.units.length > newCap) {
+                    showAlert("ที่อยู่เต็ม", `ที่อยู่คุณจะไม่พอ กรุณาเลิกจ้าง ${state.units.length - newCap} คน เพื่อขาย ${itemDef.name}`, "home");
+                    return;
+                }
+            }
+
             if (itemDef.cursed) {
                 // Penalty for selling cursed items
                 state.balance -= 500;
@@ -3257,7 +3471,7 @@
                 // Record this sale for cooldown calculation
                 recordSell(inv.itemId);
                 
-                log(`ขาย ${itemDef.name} ได้ $${sellPrice}`, "text-emerald-400");
+                log(`ขาย ${itemDef.name} ได้ $${formatNumber(sellPrice)}`, "text-emerald-400");
                 showToast(`ขาย ${itemDef.name} ได้ $${sellPrice}`, "success", 2000);
             }
             
@@ -3332,7 +3546,7 @@
                         ${matListHTML}
                     </div>
                     <div class="mt-auto">
-                        <div class="text-right text-xs font-bold mb-2 text-slate-400">Fee: $${currentFee.toLocaleString()}</div>
+                        <div class="text-right text-xs font-bold mb-2 text-slate-400" title="ค่าธรรมเนียม: $${currentFee.toLocaleString()}" style="cursor: help;">Fee: $${formatNumber(currentFee)}</div>
                         <button onclick="craftItem('${recipe.id}', ${currentFee})" ${!canCraft ? 'disabled' : ''} class="w-full py-2 ${canCraft ? 'bg-orange-600 hover:bg-orange-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'} rounded-lg text-xs font-bold transition-all">สร้างไอเทม</button>
                     </div>
                 </div>`;
@@ -3467,7 +3681,7 @@
                     <div class="glass-card p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
                         <div class="flex-1">
                             <p class="font-bold text-sm">${acc.username}</p>
-                            <p class="text-[10px] text-slate-500">๏ $${acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p class="text-[10px] text-slate-500" title="ยอดเงิน: $${acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}" style="cursor: help;">๏ $${formatNumber(acc.balance)}</p>
                         </div>
                         <div class="flex gap-2">
                             <button onclick="switchAccount('${acc.username}')" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-[9px] font-bold">เล่น</button>
@@ -3585,7 +3799,7 @@
                 log(`Peer identified as: ${data.name}`, "text-blue-400");
             } else if (data.type === 'TRANSFER') {
                 state.balance += data.amount;
-                log(`ได้รับเงินโอนจาก ${data.from}: $${data.amount}`, "text-emerald-400 font-bold");
+                log(`ได้รับเงินโอนจาก ${data.from}: $${formatNumber(data.amount)}`, "text-emerald-400 font-bold");
                 showToast(`เพื่อนชื่อ ${data.from} โอนเงินให้คุณ $${data.amount}`, "success", 2500);
                 broadcastBalance();
                 saveProfile();
@@ -3653,24 +3867,25 @@
                     }
                     
                     if (defendingUnit && !bypassDefender) {
-                        // Attack hits the defending unit instead
+                        // Priority Attack Hit: Defender takes the hit FIRST (before player)
+                        // This is the core mechanic: defenders stand in front
                         const defenderHasSpell = defendingUnit.spell && defendingUnit.spell > 0;
                         
                         let dmg = 0;
                         if (hasSpell && !defenderHasSpell) {
                             dmg = data.unitSpell;
-                            msg = `${data.from} ส่ง ${data.unitName} มาโจมตี ${getUnitDisplayName(defendingUnit)} ด้วยเวท! เสียเลือด ${dmg} (ผ่านป้องกัน)`;
-                            log(`SPELL ATTACKED ${getUnitDisplayName(defendingUnit)} by ${data.from} (-${dmg} HP, bypassed DEF)`, "text-purple-500 font-bold");
+                            msg = `${data.from} ส่ง ${data.unitName} มาโจมตี ${getUnitDisplayName(defendingUnit)} ด้วยเวท! เสียเลือด ${formatNumber(dmg)} (ผ่านป้องกัน)`;
+                            log(`SPELL ATTACKED ${getUnitDisplayName(defendingUnit)} by ${data.from} (-${formatNumber(dmg)} HP, bypassed DEF)`, "text-purple-500 font-bold");
                             alertIcon = 'zap';
                         } else {
                             dmg = Math.max(1, data.unitAtk - defendingUnit.def);
                             dmg = Math.floor(dmg * (0.8 + Math.random() * 0.4));
-                            msg = `${data.from} ส่ง ${data.unitName} มาโจมตี ${getUnitDisplayName(defendingUnit)}! เสียเลือด ${dmg}`;
-                            log(`ATTACKED ${getUnitDisplayName(defendingUnit)} by ${data.from} (-${dmg} HP)`, "text-rose-500 font-bold");
+                            msg = `${data.from} ส่ง ${data.unitName} มาโจมตี ${getUnitDisplayName(defendingUnit)}! เสียเลือด ${formatNumber(dmg)}`;
+                            log(`ATTACKED ${getUnitDisplayName(defendingUnit)} by ${data.from} (-${formatNumber(dmg)} HP)`, "text-rose-500 font-bold");
                             alertIcon = 'shield';
                         }
                         
-                        defendingUnit.hp -= dmg;
+                        defendingUnit.hp = Math.max(0, defendingUnit.hp - dmg);
                         if (defendingUnit.hp <= 0) {
                             state.units = state.units.filter(u => u.uid !== defendingUnit.uid);
                             msg += ` - ${getUnitDisplayName(defendingUnit)} ตาย!`;
@@ -3698,12 +3913,12 @@
                             // Normal attack
                             dmg = Math.max(1, data.unitAtk - state.stats.def);
                             dmg = Math.floor(dmg * (0.8 + Math.random() * 0.4));
-                            msg = `${data.from} ส่ง ${data.unitName} มาโจมตี! เสียเลือด ${dmg}`;
-                            log(`ATTACKED by ${data.from} (-${dmg} HP)`, "text-rose-500 font-bold");
+                            msg = `${data.from} ส่ง ${data.unitName} มาโจมตี! เสียเลือด ${formatNumber(dmg)}`;
+                            log(`ATTACKED by ${data.from} (-${formatNumber(dmg)} HP)`, "text-rose-500 font-bold");
                             alertIcon = 'sword';
                         }
                         
-                        state.stats.hp -= dmg;
+                        state.stats.hp = Math.max(0, state.stats.hp - dmg);
                     }
                     
                     checkGameOver();
@@ -3712,8 +3927,8 @@
                     const robSuccess = Math.random() < 0.6; // 60% success rate
                     if (robSuccess && state.balance >= data.robAmount) {
                         state.balance -= data.robAmount;
-                        msg = `${data.from} ส่ง ${data.unitName} มาปล้น! ปล้นเงินไป $${data.robAmount}`;
-                        log(`ROBBED by ${data.from} (-$${data.robAmount})`, "text-amber-500 font-bold");
+                        msg = `${data.from} ส่ง ${data.unitName} มาปล้น! ปล้นเงินไป $${formatNumber(data.robAmount)}`;
+                        log(`ROBBED by ${data.from} (-$${formatNumber(data.robAmount)})`, "text-amber-500 font-bold");
                         alertIcon = 'treasure-chest';
                     } else {
                         msg = `${data.from} ส่ง ${data.unitName} มาปล้นแต่ล้มเหลว!`;
@@ -3728,8 +3943,8 @@
                     alertIcon = 'lock';
                 } else if (data.action === 'HEAL') {
                     state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + data.value);
-                    msg = `${data.from} ส่ง ${data.unitName} มารักษา! (+${data.value} HP)`;
-                    log(`HEALED by ${data.from} (+${data.value} HP)`, "text-emerald-500 font-bold");
+                    msg = `${data.from} ส่ง ${data.unitName} มารักษา! (+${formatNumber(data.value)} HP)`;
+                    log(`HEALED by ${data.from} (+${formatNumber(data.value)} HP)`, "text-emerald-500 font-bold");
                     alertIcon = 'heart';
                 } else if (data.action === 'GIFT') {
                     msg = `${data.from} ส่ง ${data.unitName} เป็นของขวัญให้คุณ`;
@@ -4385,7 +4600,7 @@
         }
 
         function updatePortfolioUI() {
-            document.getElementById('display-balance').innerText = `$${state.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('display-balance').innerText = `$${formatBalance(state.balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('display-username').innerText = state.username;
             
             const list = document.getElementById('position-list');
@@ -4396,7 +4611,9 @@
 
             list.innerHTML = state.positions.map(p => {
                 const isCurrent = p.asset === state.currentAsset;
-                const diff = isCurrent ? (state.currentPrice - p.entry) : 0;
+                // Use current price if viewing this asset, otherwise use last known price
+                const priceToUse = isCurrent ? state.currentPrice : (state.lastKnownPrices[p.asset] || p.entry);
+                const diff = priceToUse - p.entry;
                 const pct = (p.type === 'LONG' ? (diff / p.entry) : (-diff / p.entry)) * 100 * p.mult;
                 const pnl = (pct / 100) * p.size;
 
@@ -4408,14 +4625,14 @@
                         </div>
                         <div class="flex justify-between items-end">
                             <div class="text-[9px] text-slate-500 font-mono">
-                                Vol: $${p.size.toLocaleString()} <span class="text-amber-500">x${p.mult}</span><br>
+                                Vol: $${formatNumber(p.size)} <span class="text-amber-500">x${p.mult}</span><br>
                                 Ent: $${p.entry.toFixed(2)}
                             </div>
                             <div class="text-right">
                                 <div class="${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'} text-xs font-bold font-mono">
-                                    ${isCurrent ? (pnl >= 0 ? '+' : '') + pnl.toFixed(2) : '--'}
+                                    ${(pnl >= 0 ? '+' : '') + pnl.toFixed(2)}
                                 </div>
-                                <div class="text-[9px] opacity-60">${isCurrent ? pct.toFixed(2) + '%' : ''}</div>
+                                <div class="text-[9px] opacity-60">${pct.toFixed(2)}%</div>
                             </div>
                         </div>
                     </div>
@@ -4434,7 +4651,7 @@
 
             ui.innerHTML = leaderboard.map((f, index) => {
                 const isOnline = state.peer && state.peer.connections[f.id] && state.peer.connections[f.id].some(c => c.open);
-                const balanceDisplay = f.balance !== undefined ? `$${f.balance.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}` : '---';
+                const balanceDisplay = f.balance !== undefined ? `$${formatNumber(f.balance)}` : '---';
                 const rankColor = index === 0 ? 'text-amber-400' : (index === 1 ? 'text-slate-300' : (index === 2 ? 'text-amber-700' : 'text-slate-500'));
 
                 return `
@@ -4533,8 +4750,108 @@
             }, duration);
         }
 
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                if (modal.classList.contains('hidden')) {
+                    modal.classList.remove('hidden');
+                } else {
+                    modal.remove();
+                }
+            }
+        }
         function clearLogs() { document.getElementById('log-container').innerHTML = ''; }
+
+        function closeGameOverModal() {
+            // Close bankruptcy or death modal without restarting
+            const bankruptcyModal = document.getElementById('bankruptcy-modal');
+            const deathModal = document.getElementById('death-modal');
+            if (bankruptcyModal) bankruptcyModal.classList.add('hidden');
+            if (deathModal) deathModal.classList.add('hidden');
+            
+            // Disable all trading/action buttons
+            document.querySelectorAll('button').forEach(btn => {
+                if (!btn.closest('#bankruptcy-modal') && !btn.closest('#death-modal')) {
+                    btn.disabled = true;
+                }
+            });
+            document.querySelectorAll('input').forEach(inp => inp.disabled = true);
+            document.querySelectorAll('select').forEach(sel => sel.disabled = true);
+        }
+
+        function resetGameState() {
+            // Reset the game completely
+            state.username = '';
+            state.balance = INITIAL_BALANCE;
+            state.positions = [];
+            state.loans = [];
+            state.repaymentCount = 0;
+            state.inventory = [];
+            state.stats = { hp: 100, maxHp: 100, energy: 100, maxEnergy: 100, atk: 10, def: 5 };
+            state.units = [];
+            state.multiplierLevel = 2;
+            state.gameOverState = null;
+            state.lastKnownPrices = {};
+            state.actionCooldowns = {};
+            state.capturedUntil = 0;
+            state.dungeons = [];
+            state.loanAutoPayCount = 0;
+            
+            // Close modals
+            closeGameOverModal();
+            
+            // Re-enable all buttons and inputs
+            document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            document.querySelectorAll('input').forEach(inp => inp.disabled = false);
+            document.querySelectorAll('select').forEach(sel => sel.disabled = false);
+            
+            // Return to setup screen
+            document.getElementById('setup-screen').classList.remove('hidden');
+            document.getElementById('main-dashboard').classList.add('hidden');
+            
+            saveProfile();
+            log('เกมรีเซ็ตแล้ว - กลับไปยังหน้าเริ่มต้น', "text-blue-400");
+        }
+
+        function showBankruptcyScreen() {
+            if (state.gameOverState === 'bankrupt') return; // Already showing
+            
+            state.gameOverState = 'bankrupt';
+            
+            // Hide other modals
+            document.getElementById('death-modal').classList.add('hidden');
+            document.getElementById('alert-modal').classList.add('hidden');
+            
+            // Show bankruptcy modal
+            document.getElementById('bankruptcy-modal').classList.remove('hidden');
+            
+            // Disable all game actions
+            document.querySelectorAll('button:not(#bankruptcy-modal button)').forEach(btn => btn.disabled = true);
+            document.querySelectorAll('input:not(#bankruptcy-modal input)').forEach(inp => inp.disabled = true);
+            document.querySelectorAll('select:not(#bankruptcy-modal select)').forEach(sel => sel.disabled = true);
+            
+            log('-💔- ล้มละลาย! เงินหมด! จำเป็นต้องเริ่มใหม่ -💔-', "text-rose-600 font-bold");
+        }
+
+        function showDeathScreen() {
+            if (state.gameOverState === 'dead') return; // Already showing
+            
+            state.gameOverState = 'dead';
+            
+            // Hide other modals
+            document.getElementById('bankruptcy-modal').classList.add('hidden');
+            document.getElementById('alert-modal').classList.add('hidden');
+            
+            // Show death modal
+            document.getElementById('death-modal').classList.remove('hidden');
+            
+            // Disable all game actions
+            document.querySelectorAll('button:not(#death-modal button)').forEach(btn => btn.disabled = true);
+            document.querySelectorAll('input:not(#death-modal input)').forEach(inp => inp.disabled = true);
+            document.querySelectorAll('select:not(#death-modal select)').forEach(sel => sel.disabled = true);
+            
+            log('-💀- ตายแล้ว! HP เหลือ 0! จำเป็นต้องเริ่มใหม่ -💀-', "text-red-600 font-bold");
+        }
 
         // --- ID UI Handlers ---
         function renderMyId() {
@@ -4583,6 +4900,23 @@
                 state.actionCooldowns = saved.actionCooldowns || {};
                 state.capturedUntil = saved.capturedUntil || 0;
                 state.dungeons = saved.dungeons || [];
+                state.lastKnownPrices = saved.lastKnownPrices || {};
+                state.gameOverState = saved.gameOverState || null;
+                
+                // If game was in game-over state, show the appropriate screen
+                if (state.gameOverState === 'bankrupt') {
+                    setTimeout(() => {
+                        document.getElementById('main-dashboard').classList.remove('hidden');
+                        document.getElementById('trading-screen').classList.remove('hidden');
+                        showBankruptcyScreen();
+                    }, 500);
+                } else if (state.gameOverState === 'dead') {
+                    setTimeout(() => {
+                        document.getElementById('main-dashboard').classList.remove('hidden');
+                        document.getElementById('trading-screen').classList.remove('hidden');
+                        showDeathScreen();
+                    }, 500);
+                }
                 
                 // Restore active explorations and restart timers
                 if (saved.activeExplorations && saved.activeExplorations.length > 0) {
@@ -4602,6 +4936,7 @@
                 updateLoanUI();
                 updateShopPrices(); // init prices
                 updateStatsUI();
+                updateMultiplierUI(); // Update multiplier display to show actual level
                 updateExplorationUI(); // Update exploration display on load
             } else {
                 document.getElementById('setup-screen').classList.remove('hidden');
@@ -4671,6 +5006,18 @@
                 }
             };
 
+            // Trade Size Input Constraint - Task 2
+            const tradeInput = document.getElementById('trade-size-input');
+            if (tradeInput) {
+                tradeInput.addEventListener('input', function() {
+                    const val = parseFloat(this.value);
+                    if (val > state.balance) {
+                        this.value = Math.floor(state.balance * 100) / 100; // Limit to actual balance
+                        // showToast("จำนวนเงินเกินยอดคงเหลือ!", "warning", 1000); // Optional: Notify user
+                    }
+                });
+            }
+
             setInterval(fetchRealtimeTick, 2000);
             setInterval(fetchMarketData, 30000);
             
@@ -4680,19 +5027,11 @@
                 restockShop(); // Restock shop every minute
                 if (state.activeScreen === 'loan-screen') updateLoanUI(); // Update interest display
                 
-                // Check if total wealth (balance + positions) is 0 or negative - Game Over!
-                if (getTotalWealth() <= 0) {
+                // Check if total wealth (balance + positions) is 0 or negative - Game Over (Bankruptcy)!
+                if (getTotalWealth() <= 0 && state.gameOverState !== 'bankrupt' && state.gameOverState !== 'dead') {
                     state.balance = 0;
-                    log("💀 ระบบซัดผลการจ่ายหนี้! งบประมาณเป็น 0!", "text-rose-600 font-bold");
-                    showAlert("GAME OVER", "เงินของคุณหมด! เกมจบแล้ว", "skull");
-                    // Disable all actions except alert modal close button
-                    document.querySelectorAll('button').forEach(btn => {
-                        if (!btn.closest('#alert-modal')) {
-                            btn.disabled = true;
-                        }
-                    });
-                    document.querySelectorAll('input').forEach(inp => inp.disabled = true);
-                    document.querySelectorAll('select').forEach(sel => sel.disabled = true);
+                    showBankruptcyScreen();
+                    saveProfile();
                     return;
                 }
                 if (state.activeScreen === 'crafting-screen') renderCraftingUI(); // Update fee
@@ -4711,17 +5050,9 @@
                     if (state.stats.hp < 0) state.stats.hp = 0;
                     
                     // Death condition
-                    if (state.stats.hp <= 0) {
-                        log("⚠️ คุณตายแล้ว!", "text-rose-600 font-bold");
-                        showAlert("GAME OVER", "คุณตายแล้ว! ต้องเริ่มเกมใหม่", "skull");
-                        // Disable all actions except alert modal close button
-                        document.querySelectorAll('button').forEach(btn => {
-                            if (!btn.closest('#alert-modal')) {
-                                btn.disabled = true;
-                            }
-                        });
-                        document.querySelectorAll('input').forEach(inp => inp.disabled = true);
-                        document.querySelectorAll('select').forEach(sel => sel.disabled = true);
+                    if (state.stats.hp <= 0 && state.gameOverState !== 'dead' && state.gameOverState !== 'bankrupt') {
+                        showDeathScreen();
+                        saveProfile();
                     }
                     updateStatsUI();
                 }
