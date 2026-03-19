@@ -1171,8 +1171,8 @@
         async function deleteAccount(username) {
             return new Promise(res => {
                 const tx = db.transaction("accounts", "readwrite");
-                const req = tx.objectStore("accounts").delete(username);
-                req.onsuccess = () => res();
+                tx.objectStore("accounts").delete(username);
+                tx.oncomplete = () => res();
             });
         }
 
@@ -1195,8 +1195,8 @@
         async function removeFriend(id) {
             return new Promise(res => {
                 const tx = db.transaction("friends", "readwrite");
-                const req = tx.objectStore("friends").delete(id);
-                req.onsuccess = () => res();
+                tx.objectStore("friends").delete(id);
+                tx.oncomplete = () => res();
             });
         }
 
