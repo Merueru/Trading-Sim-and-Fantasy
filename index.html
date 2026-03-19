@@ -547,6 +547,9 @@
                                 <h3 class="text-lg font-bold text-emerald-400 mb-3">ข้อมูลดันเจี้ยน</h3>
                                 <div id="report-content" class="space-y-2 text-sm"></div>
                             </div>
+
+                            <!-- Dungeon Exploration Status -->
+                            <div id="dungeon-exploration-status" class="text-sm text-yellow-400 font-bold"></div>
                         </div>
 
                         <!-- Actions Panel -->
@@ -994,6 +997,7 @@
             loanAutoPayCount: 0, // Track how many times auto-payment has failed (0-3)
             capturedUntil: 0, // Timestamp when capture effect ends (0 = not captured)
             dungeons: [], // { id, level, depth, discovered, scoutedLevel, exploringUnits: [] , rewards: [] }
+            dungeonLogs: [], // { id, timestamp, level, depth, unitsSentCount, unitsReturnedCount, rewards, events }
             selectedLoanAmount: null, // Remember which loan amount button was clicked
             selectedUnitsForAction: new Set(), // Store UIDs of units selected for multi-action
             gameOverState: null // null = playing, 'bankrupt' = คุณล้มละลาย, 'dead' = คุณตายแล้ว
@@ -1029,6 +1033,17 @@
                 // Don't save timerInterval - we'll recreate it on load
             }));
             
+            // Serialize activeDungeonExplorations
+            const dungeonExplorations = (window.activeDungeonExplorations || []).map(exp => ({
+                id: exp.id,
+                dungeonId: exp.dungeonId,
+                units: exp.units,
+                numUnits: exp.numUnits,
+                remainingTime: exp.remainingTime,
+                startTime: exp.startTime,
+                status: exp.status
+            }));
+            
             const tx = db.transaction(["profile", "accounts"], "readwrite");
             tx.objectStore("profile").put({
                 key: "current", 
@@ -1048,6 +1063,9 @@
                 capturedUntil: state.capturedUntil,
                 dungeons: state.dungeons,
                 activeExplorations: explorations,
+                activeDungeonExplorations: dungeonExplorations,
+                explorationLogs: state.explorationLogs || [],
+                dungeonLogs: state.dungeonLogs || [],
                 gameOverState: state.gameOverState
             });
             tx.objectStore("accounts").put({
@@ -1067,6 +1085,9 @@
                 capturedUntil: state.capturedUntil,
                 dungeons: state.dungeons,
                 activeExplorations: explorations,
+                activeDungeonExplorations: dungeonExplorations,
+                explorationLogs: state.explorationLogs || [],
+                dungeonLogs: state.dungeonLogs || [],
                 gameOverState: state.gameOverState,
                 lastPlayed: new Date().getTime()
             });
@@ -2545,6 +2566,7 @@
 
         // Global variable for active explorations
         window.activeExplorations = [];
+        window.activeDungeonExplorations = [];
         function toggleUnitSelect(idx, cbId) {
             const checkbox = document.getElementById(cbId);
             const container = document.getElementById(`unit-select-${idx}`);
@@ -2566,73 +2588,107 @@
             }
             
             let modalHTML = `<div id="exploration-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-                <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-yellow-500">
-                    <h2 class="text-2xl font-bold mb-4">เลือกการสำรวจ</h2>
-                    <p class="text-sm text-slate-300 mb-6">เลือกหน่วยและประเภทการสำรวจ</p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <!-- Unit Selection -->
-                        <div>
-                            <h3 class="font-bold text-sm mb-3">หน่วยที่ส่งไปสำรวจ</h3>
-                            <div class="space-y-2 max-h-48 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">`;
-            
-            state.units.forEach((u, idx) => {
-                const cbId = `explore-cb-${idx}`;
-                modalHTML += `<div class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-all" id="unit-select-${idx}" onclick="toggleUnitSelect(${idx}, '${cbId}')">
-                    <input type="checkbox" id="${cbId}" class="explore-unit-checkbox" value="${u.uid}" style="cursor: pointer;">
-                    <span class="text-sm flex-1">${u.name} (Lv.${u.level})</span>
-                </div>`;
-            });
-            
-            modalHTML += `</div>
-                        </div>
-                        
-                        <!-- Exploration Type -->
-                        <div>
-                            <h3 class="font-bold text-sm mb-3">ประเภทการสำรวจ</h3>
-                            <div class="space-y-3">
-                                <label class="flex items-start gap-3 p-3 border border-cyan-700 rounded-lg hover:bg-cyan-900/30 cursor-pointer exploration-type" data-type="near">
-                                    <input type="radio" name="exploration-type" value="near" checked>
-                                    <div>
-                                        <p class="font-bold text-cyan-400">สำรวจใกล้</p>
-                                        <p class="text-[10px] text-slate-400">เวลา: 2 นาที | ความเสี่ยง: ต่ำ | สูงสุด: 5 หน่วย</p>
-                                        <p class="text-[10px] text-slate-400">เหมาะสำหรับหน่วยทั้งหมด</p>
-                                    </div>
-                                </label>
-                                
-                                <label class="flex items-start gap-3 p-3 border border-yellow-700 rounded-lg hover:bg-yellow-900/30 cursor-pointer exploration-type" data-type="around">
-                                    <input type="radio" name="exploration-type" value="around">
-                                    <div>
-                                        <p class="font-bold text-yellow-400">สำรวจรอบๆ</p>
-                                        <p class="text-[10px] text-slate-400">เวลา: 5 นาที | ความเสี่ยง: ปานกลาง | สูงสุด: 10 หน่วย</p>
-                                        <p class="text-[10px] text-slate-400">ต้องระดับ 5+ หรือแรง</p>
-                                    </div>
-                                </label>
-                                
-                                <label class="flex items-start gap-3 p-3 border border-orange-700 rounded-lg hover:bg-orange-900/30 cursor-pointer exploration-type" data-type="far">
-                                    <input type="radio" name="exploration-type" value="far">
-                                    <div>
-                                        <p class="font-bold text-orange-400">สำรวจไกล</p>
-                                        <p class="text-[10px] text-slate-400">เวลา: 7 นาที | ความเสี่ยง: สูง | สูงสุด: 20 หน่วย</p>
-                                        <p class="text-[10px] text-slate-400">ต้องระดับ 10+ หรือแรงมาก</p>
-                                    </div>
-                                </label>
+                <div class="glass-card p-6 rounded-3xl max-w-5xl w-full border-t-4 border-yellow-500">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Left: History Log -->
+                        <div class="md:col-span-1 border-r border-slate-800 pr-4 flex flex-col h-[600px]">
+                            <h3 class="font-bold text-sm mb-3 flex items-center gap-2 text-yellow-400"><i data-lucide="history" class="w-4 h-4"></i> ประวัติการสำรวจ</h3>
+                            <div class="flex-1 overflow-y-auto space-y-3 pr-2 smooth-scroll text-xs">
+                                ${state.explorationLogs && state.explorationLogs.length > 0 ? 
+                                    state.explorationLogs.map(log => {
+                                        const typeColors = { near: 'text-cyan-400', around: 'text-yellow-400', far: 'text-orange-400' };
+                                        const typeNames = { near: 'ใกล้', around: 'รอบๆ', far: 'ไกล' };
+                                        return `
+                                        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 hover:border-yellow-500/30 transition-all">
+                                            <div class="flex justify-between text-slate-500 mb-1.5 font-mono text-[10px]">
+                                                <span>${new Date(log.timestamp).toLocaleString(undefined, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+                                                <span class="${typeColors[log.type] || 'text-white'} font-bold">${typeNames[log.type] || log.type}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center mb-1 text-slate-300">
+                                                <span>หน่วย: ${log.unitsSentCount} <i data-lucide="arrow-right" class="w-3 h-3 inline"></i> ${log.unitsReturnedCount}</span>
+                                                <span class="text-emerald-400 font-bold">+$${formatNumber(log.rewards.money)}</span>
+                                            </div>
+                                            ${log.rewards.itemCount > 0 ? `<div class="text-purple-400 mb-1 flex items-center gap-1"><i data-lucide="gift" class="w-3 h-3"></i> พบไอเทม ${log.rewards.itemCount} ชิ้น</div>` : ''}
+                                            <div class="text-slate-400 pl-2 border-l-2 border-slate-700 mt-2 space-y-1 text-[10px] max-h-20 overflow-y-auto smooth-scroll">
+                                                ${log.events.map(e => `<div class="truncate" title="${e}">${e}</div>`).join('')}
+                                            </div>
+                                        </div>
+                                        `;
+                                    }).join('') 
+                                    : '<div class="text-center text-slate-600 py-10">ยังไม่มีประวัติการสำรวจ</div>'
+                                }
                             </div>
                         </div>
-                    </div>
-                    
-                    <div id="exploration-info" class="bg-blue-900/30 border border-blue-700 p-3 rounded-lg mb-6 text-sm">
-                        <p class="text-cyan-300">กรุณาเลือกอย่างน้อย 1 หน่วย</p>
-                    </div>
-                    
-                    <div class="flex gap-3">
-                        <button onclick="startExploration()" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold">เริ่มสำรวจ</button>
-                        <button onclick="document.getElementById('exploration-modal').remove()" class="flex-1 bg-slate-800 py-3 rounded-xl font-bold">ยกเลิก</button>
+
+                        <!-- Right: Actions (Span 2 cols) -->
+                        <div class="md:col-span-2 flex flex-col h-[600px]">
+                            <h2 class="text-2xl font-bold mb-4">เลือกการสำรวจ</h2>
+                            <p class="text-sm text-slate-300 mb-6">เลือกหน่วยและประเภทการสำรวจ</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-1 overflow-y-auto smooth-scroll">
+                                <!-- Unit Selection -->
+                                <div>
+                                    <h3 class="font-bold text-sm mb-3">หน่วยที่ส่งไปสำรวจ</h3>
+                                    <div class="space-y-2 max-h-60 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">
+                                        ${state.units.map((u, idx) => {
+                                            const cbId = `explore-cb-${idx}`;
+                                            return `<div class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-all" id="unit-select-${idx}" onclick="toggleUnitSelect(${idx}, '${cbId}')">
+                                                <input type="checkbox" id="${cbId}" class="explore-unit-checkbox" value="${u.uid}" style="cursor: pointer;">
+                                                <span class="text-sm flex-1">${getUnitDisplayName(u)}</span>
+                                            </div>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                                
+                                <!-- Exploration Type -->
+                                <div>
+                                    <h3 class="font-bold text-sm mb-3">ประเภทการสำรวจ</h3>
+                                    <div class="space-y-3">
+                                        <label class="flex items-start gap-3 p-3 border border-cyan-700 rounded-lg hover:bg-cyan-900/30 cursor-pointer exploration-type" data-type="near">
+                                            <input type="radio" name="exploration-type" value="near" checked>
+                                            <div>
+                                                <p class="font-bold text-cyan-400">สำรวจใกล้</p>
+                                                <p class="text-[10px] text-slate-400">เวลา: 2 นาที | ความเสี่ยง: ต่ำ | สูงสุด: 5 หน่วย</p>
+                                                <p class="text-[10px] text-slate-400">เหมาะสำหรับหน่วยทั้งหมด</p>
+                                            </div>
+                                        </label>
+                                        
+                                        <label class="flex items-start gap-3 p-3 border border-yellow-700 rounded-lg hover:bg-yellow-900/30 cursor-pointer exploration-type" data-type="around">
+                                            <input type="radio" name="exploration-type" value="around">
+                                            <div>
+                                                <p class="font-bold text-yellow-400">สำรวจรอบๆ</p>
+                                                <p class="text-[10px] text-slate-400">เวลา: 5 นาที | ความเสี่ยง: ปานกลาง | สูงสุด: 10 หน่วย</p>
+                                                <p class="text-[10px] text-slate-400">ต้องระดับ 5+ หรือแรง</p>
+                                            </div>
+                                        </label>
+                                        
+                                        <label class="flex items-start gap-3 p-3 border border-orange-700 rounded-lg hover:bg-orange-900/30 cursor-pointer exploration-type" data-type="far">
+                                            <input type="radio" name="exploration-type" value="far">
+                                            <div>
+                                                <p class="font-bold text-orange-400">สำรวจไกล</p>
+                                                <p class="text-[10px] text-slate-400">เวลา: 7 นาที | ความเสี่ยง: สูง | สูงสุด: 20 หน่วย</p>
+                                                <p class="text-[10px] text-slate-400">ต้องระดับ 10+ หรือแรงมาก</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="exploration-info" class="bg-blue-900/30 border border-blue-700 p-3 rounded-lg mb-6 text-sm">
+                                <p class="text-cyan-300">กรุณาเลือกอย่างน้อย 1 หน่วย</p>
+                            </div>
+                            
+                            <div class="flex gap-3">
+                                <button onclick="startExploration()" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold">เริ่มสำรวจ</button>
+                                <button onclick="document.getElementById('exploration-modal').remove()" class="flex-1 bg-slate-800 py-3 rounded-xl font-bold">ยกเลิก</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>`;
             
             document.body.insertAdjacentHTML('beforeend', modalHTML);
+            lucide.createIcons();
             
             // Add event listeners
             document.querySelectorAll('.exploration-type').forEach(label => {
@@ -2883,6 +2939,24 @@
             
             // Store survivors for later restoration
             window.explorationSurvivors = survivors;
+
+            // --- SAVE LOG ---
+            const logEntry = {
+                id: Date.now(),
+                timestamp: Date.now(),
+                type: type,
+                unitsSentCount: numUnits,
+                unitsReturnedCount: survivors.length,
+                rewards: {
+                    money: rewards.money,
+                    itemCount: rewards.items.length
+                },
+                events: eventLog
+            };
+            
+            if (!state.explorationLogs) state.explorationLogs = [];
+            state.explorationLogs.unshift(logEntry);
+            if (state.explorationLogs.length > 30) state.explorationLogs.pop(); // Keep last 30 logs
             
             // Show results
             let resultHTML = `<div id="exploration-results-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
@@ -2923,8 +2997,8 @@
                 log(`✅ หน่วย ${survivorNames} กลับมาแล้ว`, "text-emerald-500");
             }
             
-            // Clear exploration status
-            document.getElementById('exploration-status').innerHTML = '';
+            // Update exploration status with remaining explorations
+            updateExplorationUI();
             
             // Clear global variables
             window.exploringUnits = null;
@@ -2975,7 +3049,265 @@
         }
 
         function startDungeonExploration() {
-            showAlert("สาขาอื่น", "สำหรับเวอร์ชันต่อไป", "info");
+            const dungeon = state.dungeons.find(d => !d.completed);
+            if (!dungeon) return;
+
+            // Create modal to select units for dungeon exploration
+            const selectableUnits = state.units.filter(u => u.hp > 0);
+            if (selectableUnits.length === 0) {
+                showAlert("ข้อมูล", "ไม่มีหน่วยที่สามารถลงสำรวจได้", "info");
+                return;
+            }
+
+            let modalHTML = `<div id="dungeon-unit-select-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[95] flex items-center justify-center p-4">
+                <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-red-500">
+                    <h2 class="text-2xl font-bold mb-2">🗡️ เลือกหน่วยเข้าสำรวจดันเจี้ยน</h2>
+                    <p class="text-slate-400 text-sm mb-4">ได้ 3 - 5 คน จะใช้เวลาประมาณ 3-5 นาที</p>
+                    <div class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto mb-4">
+                        ${selectableUnits.map(u => `
+                            <div class="glass-card p-3 rounded-lg border border-slate-700 cursor-pointer hover:border-red-500 transition dungeon-unit-option" data-uid="${u.uid}">
+                                <div class="font-bold text-sm">${getUnitDisplayName(u)}</div>
+                                <div class="text-xs text-slate-400">HP: ${u.hp}/${u.maxHp} ATK: ${u.atk}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="document.getElementById('dungeon-unit-select-modal').remove()" class="flex-1 bg-slate-700 text-white py-2 rounded-lg font-bold">ยกเลิก</button>
+                        <button onclick="executeDungeonExploration()" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg font-bold">เข้าสำรวจ</button>
+                    </div>
+                </div>
+            </div>`;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            // Add click handlers for unit selection
+            document.querySelectorAll('.dungeon-unit-option').forEach(el => {
+                el.addEventListener('click', function() {
+                    this.classList.toggle('border-red-500');
+                    this.classList.toggle('bg-red-900/30');
+                });
+            });
+        }
+
+        function executeDungeonExploration() {
+            const dungeon = state.dungeons.find(d => !d.completed);
+            if (!dungeon) return;
+
+            const selectedElements = document.querySelectorAll('.dungeon-unit-option.border-red-500');
+            const selectedUnits = Array.from(selectedElements).map(el => {
+                const uid = el.dataset.uid;
+                return state.units.find(u => u.uid === uid);
+            }).filter(Boolean);
+
+            if (selectedUnits.length === 0) {
+                showToast('กรุณาเลือกหน่วยอย่างน้อย 1 ตัว', 'warning', 2000);
+                return;
+            }
+
+            // Remove modal
+            const modal = document.getElementById('dungeon-unit-select-modal');
+            if (modal) modal.remove();
+
+            // Remove selected units from roster and start exploration
+            selectedUnits.forEach(unit => {
+                state.units = state.units.filter(u => u.uid !== unit.uid);
+            });
+
+            // Create active dungeon exploration entry
+            const explorationDuration = 180 + Math.random() * 120; // 3-5 minutes
+            const dungeonExploration = {
+                id: Date.now(),
+                dungeonId: dungeon.id,
+                units: selectedUnits,
+                numUnits: selectedUnits.length,
+                remainingTime: explorationDuration,
+                startTime: Date.now(),
+                status: 'counting',
+                timerInterval: null
+            };
+
+            // Add to active explorations
+            if (!window.activeDungeonExplorations) window.activeDungeonExplorations = [];
+            window.activeDungeonExplorations.push(dungeonExploration);
+
+            // Start timer
+            restartDungeonTimer(dungeonExploration);
+
+            saveProfile();
+            updateStatsUI();
+            updatePortfolioUI();
+            showToast(`เข้ากำลังสำรวจดันเจี้ยนด้วย ${selectedUnits.length} หน่วย`, 'info', 3000);
+        }
+
+        function restartDungeonTimer(exploration) {
+            if (exploration.timerInterval) clearInterval(exploration.timerInterval);
+            
+            exploration.timerInterval = setInterval(() => {
+                exploration.remainingTime -= 1;
+                updateDungeonExplorationUI();
+                
+                if (exploration.remainingTime <= 0) {
+                    clearInterval(exploration.timerInterval);
+                    exploration.status = 'ready';
+                    updateDungeonExplorationUI();
+                    showToast('สำรวจดันเจี้ยนเสร็จแล้ว!', 'success', 3000);
+                }
+            }, 1000);
+        }
+
+        function updateDungeonExplorationUI() {
+            const statusEl = document.getElementById('dungeon-exploration-status');
+            if (!statusEl) return;
+            
+            if (!window.activeDungeonExplorations || window.activeDungeonExplorations.length === 0) {
+                statusEl.innerHTML = '';
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            window.activeDungeonExplorations.forEach(exp => {
+                const mins = Math.floor(exp.remainingTime / 60);
+                const secs = exp.remainingTime % 60;
+                const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
+                const dungeon = state.dungeons.find(d => d.id === exp.dungeonId);
+                
+                if (exp.status === 'counting') {
+                    html += `<div class="text-yellow-400 text-sm">⏳ สำรวจดันเจี้ยนระดับ ${dungeon?.level} - ${timeStr}</div>`;
+                } else if (exp.status === 'ready') {
+                    html += `<div class="flex items-center gap-2">
+                        <span class="text-emerald-400 text-sm">✓ สำรวจดันเจี้ยนเสร็จได้แล้ว</span>
+                        <button onclick="completeDungeonExploration(${exp.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded text-xs font-bold">ดูผล</button>
+                    </div>`;
+                }
+            });
+            html += '</div>';
+            
+            statusEl.innerHTML = html;
+        }
+
+        function completeDungeonExploration(explorId) {
+            if (!window.activeDungeonExplorations) return;
+            const exploration = window.activeDungeonExplorations.find(exp => exp.id === explorId);
+            if (!exploration) return;
+            
+            const dungeon = state.dungeons.find(d => d.id === exploration.dungeonId);
+            if (!dungeon) return;
+            
+            // Calculate results
+            let rewards = { money: 0, items: [] };
+            let eventLog = [];
+            let survivors = [];
+            
+            const baseReward = 2000 + (dungeon.level * 500) + (dungeon.depth * 100);
+            rewards.money = Math.floor(baseReward * (0.8 + Math.random() * 0.4));
+            
+            // Each unit has chance to die or find items
+            exploration.units.forEach(unit => {
+                const survivalChance = Math.max(0.1, 1 - (dungeon.level * 0.08));
+                const rand = Math.random();
+                
+                if (rand < 1 - survivalChance) {
+                    eventLog.push(`☠️ ${getUnitDisplayName(unit)} ตายในดันเจี้ยน`);
+                } else if (rand < survivalChance * 0.3) {
+                    const item = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)];
+                    if (item && !item.craftOnly && item.type !== 'Unit') {
+                        eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name}`);
+                        rewards.items.push(item.id);
+                    }
+                    survivors.push(unit);
+                } else {
+                    eventLog.push(`✓ ${getUnitDisplayName(unit)} กลับมาปลอดภัย`);
+                    if (Math.random() < 0.2) {
+                        const bonus = Math.floor(Math.random() * 1000) + 500;
+                        rewards.money += bonus;
+                        eventLog[eventLog.length - 1] += ` และพบเงิน $${bonus}`;
+                    }
+                    survivors.push(unit);
+                }
+            });
+            
+            // Complete dungeon
+            dungeon.completed = true;
+            
+            // Save dungeon log
+            if (!state.dungeonLogs) state.dungeonLogs = [];
+            const logEntry = {
+                id: Date.now(),
+                timestamp: Date.now(),
+                level: dungeon.level,
+                depth: dungeon.depth,
+                unitsSentCount: exploration.units.length,
+                unitsReturnedCount: survivors.length,
+                rewards: {
+                    money: rewards.money,
+                    itemCount: rewards.items.length
+                },
+                events: eventLog
+            };
+            state.dungeonLogs.unshift(logEntry);
+            if (state.dungeonLogs.length > 30) state.dungeonLogs.pop();
+            
+            // Show results modal
+            let resultHTML = `<div id="dungeon-results-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                <div class="glass-card p-6 rounded-3xl max-w-lg w-full border-t-4 border-emerald-500">
+                    <h2 class="text-2xl font-bold mb-4">🏰 ผลการสำรวจดันเจี้ยน</h2>
+                    <div class="space-y-2 mb-6 max-h-64 overflow-y-auto bg-slate-900 p-4 rounded-lg smooth-scroll">`;
+            
+            eventLog.forEach(log => {
+                resultHTML += `<p class="text-sm">${log}</p>`;
+            });
+            
+            resultHTML += `</div>
+                    <div class="bg-amber-900/30 border border-amber-700 p-3 rounded-lg mb-6">
+                        <p class="font-bold text-amber-300">ได้รับ: <span class="text-amber-400">$${formatNumber(rewards.money)}</span> + ${rewards.items.length} รายการ</p>
+                        <p class="text-sm text-amber-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${exploration.units.length}</p>
+                    </div>
+                    <button onclick="closeDungeonResults()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold">รับหน่วยกลับ</button>
+                </div>
+            </div>`;
+            
+            document.body.insertAdjacentHTML('beforeend', resultHTML);
+            
+            // Store survivors temporarily
+            window.dungeonSurvivors = survivors;
+            window.lastDungeonExploration = exploration;
+            
+            // Apply rewards
+            state.balance += rewards.money;
+            rewards.items.forEach(itemId => {
+                state.inventory.push({ uid: 'dungeon_' + Date.now() + Math.random(), itemId, purchasePrice: 0 });
+            });
+            
+            saveProfile();
+            updateStatsUI();
+            updatePortfolioUI();
+        }
+
+        function closeDungeonResults() {
+            const modal = document.getElementById('dungeon-results-modal');
+            if (modal) modal.remove();
+            
+            // Return survivors
+            if (window.dungeonSurvivors && window.dungeonSurvivors.length > 0) {
+                state.units.push(...window.dungeonSurvivors);
+                const survivorNames = window.dungeonSurvivors.map(u => u.name).join(', ');
+                showToast(`${survivorNames} ได้ถูกคืนกลับ`, 'success', 3000);
+                log(`✅ หน่วย ${survivorNames} กลับจากดันเจี้ยนแล้ว`, 'text-emerald-500');
+            }
+            
+            // Clear dungeon exploration
+            if (window.lastDungeonExploration && window.activeDungeonExplorations) {
+                window.activeDungeonExplorations = window.activeDungeonExplorations.filter(exp => exp.id !== window.lastDungeonExploration.id);
+            }
+            window.dungeonSurvivors = null;
+            window.lastDungeonExploration = null;
+            
+            // Update UI
+            updateDungeonExplorationUI();
+            updateDungeonUI();
+            updateStatsUI();
+            updatePortfolioUI();
+            saveProfile();
         }
 
         function openUnitActionModal(uid) {
@@ -3281,11 +3613,11 @@
         }
         
         function formatHPDisplay(current, max) {
-            // Format large numbers: 532100000 -> 532.1m
+            // Format large numbers: 532100000 -> 532.1m, with 2 decimal places
             const format = (num) => {
-                if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'm';
-                if (num >= 1_000) return (num / 1_000).toFixed(1) + 'k';
-                return num.toString();
+                if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'm';
+                if (num >= 1_000) return (num / 1_000).toFixed(2) + 'k';
+                return num.toFixed(2);
             };
             return `${format(current)}/${format(max)}`;
         }
@@ -4902,6 +5234,8 @@
                 state.dungeons = saved.dungeons || [];
                 state.lastKnownPrices = saved.lastKnownPrices || {};
                 state.gameOverState = saved.gameOverState || null;
+                state.explorationLogs = saved.explorationLogs || [];
+                state.dungeonLogs = saved.dungeonLogs || [];
                 
                 // If game was in game-over state, show the appropriate screen
                 if (state.gameOverState === 'bankrupt') {
@@ -4927,6 +5261,15 @@
                     });
                 }
                 
+                // Restore active dungeon explorations
+                if (saved.activeDungeonExplorations && saved.activeDungeonExplorations.length > 0) {
+                    window.activeDungeonExplorations = saved.activeDungeonExplorations;
+                    // Restart timers for all dungeon explorations
+                    window.activeDungeonExplorations.forEach(exp => {
+                        restartDungeonTimer(exp);
+                    });
+                }
+                
                 state.friends = await loadAllFriends();
                 document.getElementById('main-dashboard').classList.remove('hidden');
                 document.getElementById('trading-screen').classList.remove('hidden');
@@ -4938,6 +5281,7 @@
                 updateStatsUI();
                 updateMultiplierUI(); // Update multiplier display to show actual level
                 updateExplorationUI(); // Update exploration display on load
+                updateDungeonExplorationUI(); // Update dungeon exploration display on load
             } else {
                 document.getElementById('setup-screen').classList.remove('hidden');
                 loadAccountsList();
