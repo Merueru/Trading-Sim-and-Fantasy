@@ -112,9 +112,9 @@
                         <i data-lucide="candlestick-chart" class="w-5 h-5"></i>
                         <span class="text-[9px] mt-1">เทรด</span>
                     </button>
-                    <button onclick="showScreen('profile-screen')" class="p-3 hover:bg-indigo-500/10 text-indigo-400 rounded-xl flex flex-col items-center relative" title="สถานะ">
+                    <button onclick="showScreen('profile-screen')" class="p-3 hover:bg-indigo-500/10 text-indigo-400 rounded-xl flex flex-col items-center relative" title="สถานะและกองกำลัง">
                         <i data-lucide="shield" class="w-5 h-5"></i>
-                        <span class="text-[9px] mt-1">สถานะ</span>
+                        <span class="text-[9px] mt-1">สถานะและกองกำลัง</span>
                         <span id="alert-dot" class="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full hidden"></span>
                     </button>
                     <button onclick="showScreen('loan-screen')" class="p-3 hover:bg-amber-500/10 text-amber-400 rounded-xl flex flex-col items-center" title="กู้เงิน">
@@ -134,10 +134,14 @@
                         <span class="text-[9px] mt-1">ดันเจี้ยน</span>
                         <span id="dungeon-indicator" class="absolute top-1 right-1 w-3 h-3 bg-red-600 rounded-full hidden animate-pulse"></span>
                     </button>
-                    <button id="leaderboard-btn" class="p-3 hover:bg-yellow-500/10 text-yellow-400 rounded-xl flex flex-col items-center" title="Leaderboard">
+                    <button id="leaderboard-btn" class="p-3 hover:bg-yellow-500/10 text-yellow-400 rounded-xl flex flex-col items-center" title="เพื่อนและอันดับ">
                         <i data-lucide="trophy" class="w-5 h-5"></i>
-                        <span class="text-[9px] mt-1">Leaderboard</span>
+                        <span class="text-[9px] mt-1">เพื่อนและอันดับ</span>
                     </button>
+
+                    <!-- Separator -->
+                    <div class="px-1 text-slate-700 text-lg">|</div>
+                    
                     <button id="home-btn" onclick="closeLeaderboardModal()" class="p-3 hover:bg-blue-500/10 text-blue-400 rounded-xl flex flex-col items-center" title="ออกไปหน้าแรก">
                         <i data-lucide="home" class="w-5 h-5"></i>
                         <span class="text-[9px] mt-1">หน้าแรก</span>
@@ -728,11 +732,16 @@
             // Food
             { id: 'coffee', name: 'Starbucks Coffee', type: 'Food', basePrice: 5, icon: 'coffee', effect: { energy: 20 }, maxStock: 100, restockRate: 0.8 },
             { id: 'boba', name: 'Bubble Tea', type: 'Food', basePrice: 8, icon: 'cup-soda', effect: { energy: 30 }, maxStock: 50, restockRate: 0.6 },
-            { id: 'burger', name: 'Wagyu Burger', type: 'Food', basePrice: 20, icon: 'sandwich', effect: { hp: 10, energy: 40 }, maxStock: 30, restockRate: 0.5 },
-            { id: 'sushi', name: 'Omakase Set', type: 'Food', basePrice: 150, icon: 'fish', effect: { hp: 50, energy: 50 }, maxStock: 10, restockRate: 0.3 },
-            { id: 'potion', name: 'Health Potion', type: 'Food', basePrice: 100, icon: 'flask-conical', effect: { hp: 100 }, maxStock: 20, restockRate: 0.4 },
+            { id: 'burger', name: 'Wagyu Burger', type: 'Food', basePrice: 20, icon: 'sandwich', effect: { hp: 3, energy: 40 }, maxStock: 30, restockRate: 0.5 },
+            { id: 'sushi', name: 'Omakase Set', type: 'Food', basePrice: 150, icon: 'fish', effect: { hp: 4, energy: 50 }, maxStock: 10, restockRate: 0.3 },
+            { id: 'potion', name: 'Health Potion', type: 'Food', basePrice: 100, icon: 'flask-conical', effect: { hp: 10 }, maxStock: 20, restockRate: 0.4 },
+            { id: 'mp_potion_low', name: 'MP Potion (Low)', type: 'Food', basePrice: 50, icon: 'flask-conical', effect: { mp: [2, 10] }, maxStock: 50, restockRate: 0.8, mpPotionQuality: 'low' },
             
             // Clothing/Luxury
+            // MP Potions (Mid/High only from dungeons)
+            { id: 'mp_potion_mid', name: 'MP Potion (Mid)', type: 'Food', basePrice: 0, icon: 'flask-conical', effect: { mp: [10, 20] }, maxStock: 0, restockRate: 0, mpPotionQuality: 'mid', dungeonOnly: true },
+            { id: 'mp_potion_high', name: 'MP Potion (High)', type: 'Food', basePrice: 0, icon: 'flask-conical', effect: { mp: [20, 30] }, maxStock: 0, restockRate: 0, mpPotionQuality: 'high', dungeonOnly: true },
+            
             { id: 'tshirt', name: 'Uniqlo T-Shirt', type: 'Clothing', basePrice: 15, icon: 'shirt', effect: { def: 1 }, maxStock: 50, restockRate: 0.5 },
             { id: 'sneakers', name: 'Nike Air Jordan', type: 'Clothing', basePrice: 250, icon: 'footprints', effect: { def: 2 }, maxStock: 10, restockRate: 0.2 },
             { id: 'bag', name: 'Gucci Bag', type: 'Luxury', basePrice: 2500, icon: 'shopping-bag', maxStock: 5, restockRate: 0.1 },
@@ -763,9 +772,9 @@
             { id: 'villager', name: 'ชาวบ้าน', type: 'Unit', basePrice: 100, icon: 'user', isUnit: true, baseStats: { atk: 1, def: 1, upkeep: 3 }, maxStock: 20, restockRate: 0.8 },
             { id: 'recruit', name: 'ทหารใหม่', type: 'Unit', basePrice: 1000, icon: 'user', isUnit: true, baseStats: { atk: 5, def: 3, upkeep: 30 }, maxStock: 10, restockRate: 0.5 },
             { id: 'warrior', name: 'นักรบ', type: 'Unit', basePrice: 3000, icon: 'user', isUnit: true, baseStats: { atk: 15, def: 10, upkeep: 50 }, maxStock: 5, restockRate: 0.3 },
-            { id: 'mage', name: 'นักเวท', type: 'Unit', basePrice: 8000, icon: 'wand', isUnit: true, baseStats: { atk: 25, def: 5, spell: 20, upkeep: 80 }, maxStock: 5, restockRate: 0.2 },
-            { id: 'mage_mid', name: 'นักเวทชั้นกลาง', type: 'Unit', basePrice: 20000, icon: 'wand', isUnit: true, baseStats: { atk: 35, def: 8, spell: 35, upkeep: 120 }, maxStock: 3, restockRate: 0.15 },
-            { id: 'mage_high', name: 'นักเวทชั้นสูง', type: 'Unit', basePrice: 50000, icon: 'wand', isUnit: true, baseStats: { atk: 45, def: 10, spell: 50, upkeep: 180 }, maxStock: 1, restockRate: 0.1 },
+            { id: 'mage', name: 'นักเวท', type: 'Unit', basePrice: 8000, icon: 'wand', isUnit: true, baseStats: { atk: 5, def: 5, spell: 20, upkeep: 80 }, maxStock: 5, restockRate: 0.2 },
+            { id: 'mage_mid', name: 'นักเวทชั้นกลาง', type: 'Unit', basePrice: 20000, icon: 'wand', isUnit: true, baseStats: { atk: 10, def: 8, spell: 35, upkeep: 120 }, maxStock: 3, restockRate: 0.15 },
+            { id: 'mage_high', name: 'นักเวทชั้นสูง', type: 'Unit', basePrice: 50000, icon: 'wand', isUnit: true, baseStats: { atk: 15, def: 10, spell: 50, upkeep: 180 }, maxStock: 1, restockRate: 0.1 },
             { id: 'priest', name: 'นักบวช', type: 'Unit', basePrice: 10000, icon: 'heart-pulse', isUnit: true, baseStats: { atk: 5, def: 8, spell: 5, heal: 150, upkeep: 100 }, maxStock: 4, restockRate: 0.2 },
             { id: 'priest_mid', name: 'นักบวชชั้นกลาง', type: 'Unit', basePrice: 25000, icon: 'heart-pulse', isUnit: true, baseStats: { atk: 10, def: 12, spell: 15, heal: 250, upkeep: 150 }, maxStock: 3, restockRate: 0.15 },
             { id: 'priest_high', name: 'นักบวชชั้นสูง', type: 'Unit', basePrice: 60000, icon: 'heart-pulse', isUnit: true, baseStats: { atk: 15, def: 15, spell: 25, heal: 400, upkeep: 220 }, maxStock: 1, restockRate: 0.1 },
@@ -992,7 +1001,13 @@
             dungeonLogs: [], // { id, timestamp, level, depth, unitsSentCount, unitsReturnedCount, rewards, events }
             selectedLoanAmount: null, // Remember which loan amount button was clicked
             selectedUnitsForAction: new Set(), // Store UIDs of units selected for multi-action
-            gameOverState: null // null = playing, 'bankrupt' = คุณล้มละลาย, 'dead' = คุณตายแล้ว
+            gameOverState: null, // null = playing, 'bankrupt' = คุณล้มละลาย, 'dead' = คุณตายแล้ว
+            lastUpkeepPayTime: Date.now(), // Track last upkeep payment time
+            upkeepPaymentPhase: 0, // Current phase of upkeep payment countdown (0-5)
+            upkeepPaymentStartTime: Date.now(), // When current upkeep countdown started
+            lastShownPaymentPhase: -1, // Track last shown phase to prevent duplicate toasts
+            upkeepWarningStarted: false, // Track if upkeep warning has started
+            upkeepWarningPhase: 0 // Current warning phase for removal
         };
 
         // --- Database ---
@@ -1052,6 +1067,7 @@
                 inventory: state.inventory,
                 stats: state.stats,
                 units: state.units,
+                pendingHires: state.pendingHires || [],
                 shopStock: state.shopStock,
                 multiplierLevel: state.multiplierLevel,
                 actionCooldowns: state.actionCooldowns,
@@ -1061,7 +1077,12 @@
                 activeDungeonExplorations: dungeonExplorations,
                 explorationLogs: state.explorationLogs || [],
                 dungeonLogs: state.dungeonLogs || [],
-                gameOverState: state.gameOverState
+                gameOverState: state.gameOverState,
+                upkeepPaymentStartTime: state.upkeepPaymentStartTime,
+                lastUpkeepPayTime: state.lastUpkeepPayTime,
+                upkeepPaymentPhase: state.upkeepPaymentPhase,
+                upkeepWarningStarted: state.upkeepWarningStarted,
+                upkeepWarningPhase: state.upkeepWarningPhase
             });
             tx.objectStore("accounts").put({
                 username: state.username,
@@ -1074,6 +1095,7 @@
                 inventory: state.inventory,
                 stats: state.stats,
                 units: state.units,
+                pendingHires: state.pendingHires || [],
                 shopStock: state.shopStock,
                 multiplierLevel: state.multiplierLevel,
                 actionCooldowns: state.actionCooldowns,
@@ -1084,6 +1106,11 @@
                 explorationLogs: state.explorationLogs || [],
                 dungeonLogs: state.dungeonLogs || [],
                 gameOverState: state.gameOverState,
+                upkeepPaymentStartTime: state.upkeepPaymentStartTime,
+                lastUpkeepPayTime: state.lastUpkeepPayTime,
+                upkeepPaymentPhase: state.upkeepPaymentPhase,
+                upkeepWarningStarted: state.upkeepWarningStarted,
+                upkeepWarningPhase: state.upkeepWarningPhase,
                 lastPlayed: new Date().getTime()
             });
         }
@@ -1859,14 +1886,17 @@
                                 onchange="toggleUnitForAction(${u.uid}, this)"> <div onclick="openUnitRenameModal(${u.uid})" class="cursor-pointer hover:text-blue-400 transition-colors flex-1">
                                     <span class="font-bold text-sm text-indigo-400">${displayName}</span>
                                 </div>
-                                <span class="text-[10px] text-rose-400" title="ค่าจ้าง ${u.upkeep}/นาที" style="cursor: help;">-$${formatNumber(u.upkeep)}/min</span>
+                                <div class="text-right" title="ค่าจ้างรายนาที">
+                                    <div class="text-[10px] text-rose-400 font-bold">${state.upkeepWarningStarted ? '⚠️ ' : ''}-$${formatNumber(u.upkeep)}</div>
+                                    <div class="text-[9px] text-rose-300 font-mono upkeep-countdown" data-uid="${u.uid}">60s</div>
+                                </div>
                             </div>
                             <div class="flex justify-between items-start">
-                                <div class="flex gap-2 text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg" title="⚔️ ${u.atk} ⚔️ ${u.def}" style="cursor: help;">
+                                <div class="flex gap-2 text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg" title="⚔️ โจมตี: ${u.atk} | 🛡️ ป้องกัน: ${u.def}" style="cursor: help;">
                                     <span>⚔️ ${formatNumber(u.atk)}</span>
                                     <span>🛡️ ${formatNumber(u.def)}</span>
-                                    ${u.spell ? `<span title="✨ ${u.spell}" style="cursor: help;">✨ ${formatNumber(u.spell)}</span>` : ''}
-                                    ${u.heal ? `<span title="❤️ ${u.heal}" style="cursor: help;">❤️ ${formatNumber(u.heal)}</span>` : ''}
+                                    ${u.spell ? `<span title="พลังเวท ✨ : ${u.spell}" style="cursor: help;">✨ ${formatNumber(u.spell)}</span>` : ''}
+                                    ${u.heal ? `<span title="พลังฮีล ❤️ : ${u.heal}" style="cursor: help;">❤️ ${formatNumber(u.heal)}</span>` : ''}
                                 </div>
                                 <button onclick="toggleDefender(${u.uid})" class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${u.isDefender ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}" title="ตั้งป้องกันบ้าน">${u.isDefender ? 'ตั้งรับ' : 'ว่าง'}</button>
                             </div>
@@ -1881,6 +1911,17 @@
                                     </div>
                                 </div>
                             </div>
+                            ${u.maxMp > 0 ? `<div class="flex items-center gap-2">
+                                <div class="flex-1">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-[9px] text-blue-400">MP</span>
+                                        <span class="text-[9px] text-slate-400 cursor-help" title="วิธีป้องกัน MP: ${u.mp}/${u.maxMp} | ฟื้น: ${u.mpRecovery}/2s" style="cursor: help;">${u.mp}/${u.maxMp}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-950 rounded-full h-2">
+                                        <div class="bg-blue-500 h-2 rounded-full transition-all" style="width: ${(u.mp / u.maxMp) * 100}%"></div>
+                                    </div>
+                                </div>
+                            </div>` : ''}
                             <div class="grid grid-cols-3 gap-2">
                                 <button onclick="trainUnit(${u.uid})" class="bg-indigo-600 hover:bg-indigo-500 text-white py-1 rounded-lg text-[10px] font-bold">ฝึกฝน<br>($${formatNumber(trainingCost)})</button>
                                 <button onclick="openUnitActionModal(${u.uid})" class="bg-purple-600 hover:bg-purple-500 text-white py-1 rounded-lg text-[10px] font-bold">การกระทำ</button>
@@ -1890,7 +1931,7 @@
                     }).join('');
                 }
             }
-            document.getElementById('total-upkeep').innerText = `$${formatNumber(upkeepTotal)}`;
+            document.getElementById('total-upkeep').innerText = `${state.upkeepWarningStarted ? '⚠️ ' : ''}$${formatNumber(upkeepTotal)}`;
             
             // Update unit capacity display
             const currentCapacity = getCurrentUnitCapacity();
@@ -1909,6 +1950,11 @@
 
             // Update multi-action UI
             updateUnitSelectionUI();
+            
+            // Initialize countdown timers
+            const now = Date.now();
+            const secondsRemaining = Math.max(0, Math.ceil((60000 - (now - state.upkeepPaymentStartTime)) / 1000));
+            updateUpkeepPaymentUI(secondsRemaining);
         }
 
         function healSelf() {
@@ -2345,13 +2391,25 @@
                         
                         // Check if it's a consumable food item
                         const isFood = item.type === 'Food' && item.effect;
-                        const useButtonHTML = isFood ? `<button onclick="useItem('${inv.uid}')" class="mt-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-all">ใช้</button>` : '';
+                        let useButtonHTML = '';
+                        let effectDisplayText = '';
+                        if (isFood) {
+                            if (item.mpPotionQuality) {
+                                // MP Potion - use on unit
+                                const [minMp, maxMp] = item.effect.mp || [0, 0];
+                                effectDisplayText = ` [${minMp}-${maxMp}]`;
+                                useButtonHTML = `<button onclick="useMPPotionOnUnit('${inv.uid}')" class="mt-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold transition-all">ใช้</button>`;
+                            } else {
+                                // Regular consumable
+                                useButtonHTML = `<button onclick="useItem('${inv.uid}')" class="mt-1 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-all">ใช้</button>`;
+                            }
+                        }
                         const sellButtonHTML = `<button onclick="sellItem('${inv.uid}')" class="mt-1 bg-orange-600 hover:bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold transition-all">ขาย</button>`;
                         
                         modalHTML += `
                         <div id="item-${inv.uid}" class="${itemClass} bg-slate-900 border border-slate-800 p-3 rounded-lg flex justify-between items-center hover:border-purple-500 transition-all" data-category="${item.type}">
                             <div class="flex-1">
-                                <p class="font-bold text-sm text-purple-300">${item.name}</p>
+                                <p class="font-bold text-sm text-purple-300">${item.name}${effectDisplayText}</p>
                                 <p class="text-[10px] text-slate-500">ประเภท: ${item.type}</p>
                                 ${effectText}
                             </div>
@@ -2502,6 +2560,353 @@
             return Math.floor(baseCost + (levelMultiplier * unit.level));
         }
 
+        // --- Dungeon/Exploration Battle Functions ---
+        function calculateMPLossForEncounter(unit, monsterDifficulty) {
+            // Calculate MP loss based on monster difficulty and unit's current MP
+            if (!unit.maxMp || unit.maxMp === 0) return 0; // Non-magical units lose no MP
+            
+            // Difficulty: 0 = weak, 1 = medium, 2 = hard, 3 = extreme
+            const baseLoss = [5, 15, 30, 50][monsterDifficulty] || 0; // MP points lost
+            const percentLoss = baseLoss / unit.maxMp;
+            const mpToLose = Math.floor(unit.maxMp * percentLoss);
+            
+            return Math.max(1, mpToLose);
+        }
+        
+        function calculateDeathChanceReduction(exploringParty) {
+            // Calculate death chance reduction based on priests/healers in party
+            if (!exploringParty || !Array.isArray(exploringParty)) return 0; // No reduction if no party
+            
+            let totalHealPower = 0;
+            let maxLevel = 0;
+            
+            exploringParty.forEach(uid => {
+                const unit = state.units.find(u => u.uid == uid);
+                if (unit && unit.heal) {
+                    totalHealPower += unit.heal;
+                    maxLevel = Math.max(maxLevel, unit.level || 1);
+                }
+            });
+            
+            if (totalHealPower === 0) return 0; // No healers = no reduction
+            
+            // Base reduction: 15% per healer, multiplied by healer level/max level
+            const healerCount = exploringParty.filter(uid => {
+                const u = state.units.find(x => x.uid == uid);
+                return u && u.heal;
+            }).length;
+            
+            const levelBonus = Math.min(1, maxLevel / 100); // Cap at level 100
+            const deathReduction = (healerCount * 0.15) * (1 + levelBonus); // 15-30% per healer
+            
+            return Math.min(0.80, deathReduction); // Cap at 80% reduction
+        }
+
+        // Function to apply MP loss from dungeon encounters
+        function applyMPLossFromCombat(units, monsterDifficulty) {
+            // Apply MP loss to all units that encountered the monster
+            if (!Array.isArray(units)) return;
+            
+            units.forEach(uid => {
+                const unit = state.units.find(u => u.uid == uid);
+                if (unit && unit.maxMp > 0) {
+                    const mpLoss = calculateMPLossForEncounter(unit, monsterDifficulty);
+                    unit.mp = Math.max(0, unit.mp - mpLoss);
+                    
+                    // Log the MP loss
+                    if (mpLoss > 0) {
+                        log(`💙 ${getUnitDisplayName(unit)} ใช้ MP ในการต่อสู้ -${mpLoss} MP`, "text-blue-400");
+                    }
+                }
+            });
+        }
+
+        // --- Pending Hire System (2-Minute Unit Timeout) ---
+        function initPendingHires() {
+            if (!state.pendingHires) state.pendingHires = [];
+            
+            // Start interval to process pending hires (check every 1 second)
+            if (state.pendingHireInterval) clearInterval(state.pendingHireInterval);
+            state.pendingHireInterval = setInterval(processPendingHires, 1000);
+        }
+
+        // --- Upkeep Payment System (60-Second Cycle with Warnings) ---
+        function initUpkeepPayment() {
+            if (!state.upkeepPaymentStartTime) state.upkeepPaymentStartTime = Date.now();
+            if (!state.lastUpkeepPayTime) state.lastUpkeepPayTime = Date.now();
+            
+            // Start interval to process upkeep payment (check every 1 second)
+            if (state.upkeepPaymentInterval) clearInterval(state.upkeepPaymentInterval);
+            state.upkeepPaymentInterval = setInterval(processUpkeepPayment, 1000);
+        }
+
+        function processUpkeepPayment() {
+            if (state.units.length === 0) return; // No units = no upkeep
+            
+            const now = Date.now();
+            
+            // Filter out units in their grace period (first 60 seconds)
+            const unitsToCharge = state.units.filter(u => !u.joinedAt || (now - u.joinedAt) >= 60000);
+            const UPKEEP_CYCLE_MS = 60000; // 60 seconds per cycle
+            const WARNING_PHASE_DURATION = 60000; // 60 seconds per warning phase (5 phases = 300 seconds / 5 minutes)
+            const TOTAL_WARNING_TIME = WARNING_PHASE_DURATION * 5; // 300 seconds / 5 minutes
+            
+            const elapsedSinceStart = now - state.upkeepPaymentStartTime;
+            const secondsRemaining = Math.max(0, Math.ceil((UPKEEP_CYCLE_MS - elapsedSinceStart) / 1000));
+            
+            // Calculate total upkeep cost (exclude units in their first minute)
+            const totalUpkeep = state.units.reduce((sum, u) => {
+                // Units joined less than 60 seconds ago don't pay upkeep yet
+                if (u.joinedAt && (now - u.joinedAt) < 60000) {
+                    return sum; // Skip this unit's upkeep
+                }
+                return sum + u.upkeep;
+            }, 0);
+            
+            // Update countdown timer display
+            updateUpkeepPaymentUI(secondsRemaining);
+            
+            // Check if it's time to attempt payment (after 60 seconds)
+            if (elapsedSinceStart >= UPKEEP_CYCLE_MS) {
+                if (state.balance >= totalUpkeep) {
+                    // Payment successful
+                    state.balance -= totalUpkeep;
+                    state.lastUpkeepPayTime = now;
+                    state.upkeepPaymentStartTime = now; // Reset cycle
+                    state.upkeepPaymentPhase = 0;
+                    state.upkeepWarningStarted = false;
+                    state.upkeepWarningPhase = 0;
+                    state.lastShownPaymentPhase = -1; // Reset for next cycle
+                    
+                    log(`จ่ายค่าจ้างรายนาที: -$${formatNumber(totalUpkeep)}`, "text-slate-400");
+                    showToast(`จ่ายค่าจ้างรายนาที สำเร็จ -$${formatNumber(totalUpkeep)}`, "success", 2000);
+                    
+                    // Complete pending hires when payment cycle succeeds
+                    if (state.pendingHires && state.pendingHires.length > 0) {
+                        const hiresToComplete = [...state.pendingHires].filter(h => state.balance >= h.price);
+                        hiresToComplete.forEach(hire => completePendingHire(hire.uid));
+                    }
+                    
+                    saveProfile();
+                    updatePortfolioUI();
+                    updateStatsUI();
+                } else {
+                    // Payment failed - sort units by cost (highest first) for removal order
+                    const sortedUnits = [...state.units].sort((a, b) => b.upkeep - a.upkeep);
+                    state.units = sortedUnits; // Update order for removal
+                    
+                    // Start warning phase (5 minutes countdown)
+                    state.upkeepPaymentStartTime = now;
+                    state.upkeepPaymentPhase = 0;
+                    state.upkeepWarningStarted = true;
+                    state.upkeepWarningPhase = 1; // Start from phase 1 of removal
+                    state.upkeepPaymentPhaseTimestamp = now; // Track when warning started
+                    state.lastShownPaymentPhase = 0; // Reset tracker
+                    
+                    showToast(`⚠️ เงินไม่พอจ่ายค่าจ้าง! ต้องการ $${formatNumber(totalUpkeep)}`, "warning", 3000);
+                    log(`⚠️ เงินไม่พอจ่ายค่าจ้าง! ต้องการ $${formatNumber(totalUpkeep)}`, "text-rose-500");
+                }
+            } else if (state.upkeepWarningStarted && unitsToCharge.length > 0 && state.balance < totalUpkeep) {
+                // In unit removal warning phase (5 minutes countdown) - only if there are units to charge
+                const timeSinceWarningStart = now - state.upkeepPaymentPhaseTimestamp;
+                const removalPhase = Math.floor(timeSinceWarningStart / WARNING_PHASE_DURATION) + 1; // 1-5
+                const totalWarningTimeRemaining = Math.max(0, Math.ceil((TOTAL_WARNING_TIME - timeSinceWarningStart) / 1000));
+                
+                // Only show message when phase changes (not every second)
+                if (removalPhase !== state.lastShownPaymentPhase && removalPhase <= 5) {
+                    state.lastShownPaymentPhase = removalPhase;
+                    
+                    const remainingMin = Math.floor(totalWarningTimeRemaining / 60);
+                    const remainingSec = totalWarningTimeRemaining % 60;
+                    
+                    let message = '';
+                    if (removalPhase === 1) {
+                        message = `⚠️ เงินไม่พอจ่ายค่าจ้าง! หน่วยจะหายไปอีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+                    } else if (removalPhase === 2) {
+                        message = `⚠️ เงินไม่พอจ่าย! หน่วยจะหายไปอีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+                    } else if (removalPhase === 3) {
+                        message = `⚠️⚠️ เร่งด่วน! หน่วยจะหายไปอีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+                    } else if (removalPhase === 4) {
+                        message = `⚠️⚠️⚠️ ครั้งสุดท้าย! หน่วยจะหายไปอีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+                    } else if (removalPhase === 5) {
+                        // Remove one unit (most expensive first, skip grace period units)
+                        if (unitsToCharge.length > 0) {
+                            const leaver = unitsToCharge.shift(); // Remove first (highest cost)
+                            const idx = state.units.indexOf(leaver);
+                            if (idx !== -1) state.units.splice(idx, 1);
+                            showToast(`${getUnitDisplayName(leaver)} หนีไปเพราะคุณไม่มีเงินจ่ายค่าจ้าง!`, "warning", 3000);
+                            log(`${getUnitDisplayName(leaver)} หนีไปเพราะไม่มีการจ่ายค่าจ้าง (ค่าจ้าง: $${formatNumber(leaver.upkeep)})`, "text-rose-500");
+                            updatePortfolioUI();
+                            updateStatsUI();
+                            saveProfile();
+                        }
+                        
+                        // If all charged units are gone, reset warning
+                        if (unitsToCharge.length === 0) {
+                            state.upkeepWarningStarted = false;
+                            state.upkeepWarningPhase = 0;
+                            state.upkeepPaymentStartTime = now;
+                            state.lastShownPaymentPhase = -1;
+                        }
+                    }
+                    
+                    if (message) {
+                        showToast(message, "warning", 3000);
+                    }
+                }
+            } else if (state.upkeepWarningStarted && state.balance >= totalUpkeep) {
+                // Money became available - reset warning
+                state.upkeepWarningStarted = false;
+                state.upkeepWarningPhase = 0;
+                state.lastShownPaymentPhase = -1;
+                showToast(`✅ เงินเพียงพอแล้ว! ค่าจ้างจะจ่ายอัตโนมัติ`, "success", 2500);
+                state.upkeepPaymentStartTime = now; // Reset cycle
+            }
+        }
+
+        function updateUpkeepPaymentUI(secondsRemaining) {
+            // Update countdown timer display
+            const countdowns = document.querySelectorAll('.upkeep-countdown');
+            countdowns.forEach(el => {
+                const minutes = Math.floor(secondsRemaining / 60);
+                const seconds = secondsRemaining % 60;
+                el.innerText = minutes > 0 ? `${minutes}:${seconds < 10 ? '0' : ''}${seconds}` : `${seconds}s`;
+            });
+        }
+
+        function addPendingHire(newUnit, price) {
+            if (!state.pendingHires) state.pendingHires = [];
+            
+            const pendingHire = {
+                uid: newUnit.uid,
+                unit: newUnit,
+                price: price,
+                createdAt: Date.now(),
+                paymentPhase: 0
+            };
+            
+            state.pendingHires.push(pendingHire);
+            showToast(`${getUnitDisplayName(newUnit)} อยู่ที่จุดรวบรวม รอการจ่ายเงิน`, "info", 3000);
+            log(`หน่วย ${getUnitDisplayName(newUnit)} รอการจ่ายเงินสำหรับ 5 นาที`, "text-blue-400");
+        }
+
+        function processPendingHires() {
+            if (!state.pendingHires || state.pendingHires.length === 0) return;
+            
+            const now = Date.now();
+            const timeLimitMs = 300000; // 5 minutes
+            
+            state.pendingHires = state.pendingHires.filter(hire => {
+                const elapsedMs = now - hire.createdAt;
+                const elapsedSec = Math.floor(elapsedMs / 1000);
+                
+                // Timeline: 60s intervals for payment reminders
+                // Phase 0 (0s): Created - already showed message
+                // Phase 1 (60s): First reminder
+                // Phase 2 (120s): Second reminder  
+                // Phase 3 (180s): Third reminder
+                // Phase 4 (240s): Final warning
+                // Phase 5 (300s): Unit leaves if no payment
+                
+                const newPhase = Math.floor(elapsedSec / 60);
+                
+                // Check if unit should stay or leave
+                if (elapsedMs >= timeLimitMs) {
+                    // 5 minutes elapsed - unit leaves
+                    showToast(`${getUnitDisplayName(hire.unit)} ไปแล้ว (ยังไม่มีการจ่ายเงิน)`, "warning", 3000);
+                    log(`หน่วย ${getUnitDisplayName(hire.unit)} เขาไปแล้วเนื่องจากไม่มีการจ่ายเงิน`, "text-amber-500");
+                    return false; // Remove from pending
+                }
+                
+                // Check if it's time to join (only auto-join if balance is enough)
+                if (state.balance >= hire.price) {
+                    // Money available - auto-complete hire
+                    completePendingHire(hire.uid);
+                    return false; // Remove from pending
+                } else {
+                    // Payment check at each phase (every 60 seconds) for warning messages
+                    if (newPhase > hire.paymentPhase) {
+                        hire.paymentPhase = newPhase;
+                        
+                        // Still waiting for payment or next cycle
+                        const remainingTime = Math.ceil((timeLimitMs - elapsedMs) / 1000);
+                        const remainingMin = Math.floor(remainingTime / 60);
+                        const remainingSec = remainingTime % 60;
+                        
+                        let message = '';
+                        if (newPhase === 1) {
+                            message = `จ่ายเงิน $${Math.floor(hire.price)} สำหรับ ${getUnitDisplayName(hire.unit)} อีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec} นาที`;
+                        } else if (newPhase === 2) {
+                            message = `จ่ายเงินสำหรับ ${getUnitDisplayName(hire.unit)} อีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec} นาที`;
+                        } else if (newPhase === 3) {
+                            message = `เร่งด่วน! จ่ายเงินสำหรับ ${getUnitDisplayName(hire.unit)} อีก ${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec} นาที`;
+                        } else if (newPhase === 4) {
+                            message = `⚠️ ครั้งสุดท้าย! อีก ${remainingSec} วินาที ${getUnitDisplayName(hire.unit)} จะไปแล้ว`;
+                        }
+                        
+                        if (message) {
+                            showToast(message, "warning", 2500);
+                        }
+                    }
+                }
+                
+                return true; // Keep in pending
+            });
+        }
+
+        function completePendingHire(uid) {
+            if (!state.pendingHires) return;
+            
+            const hireIndex = state.pendingHires.findIndex(h => h.uid === uid);
+            if (hireIndex === -1) return;
+            
+            const hire = state.pendingHires[hireIndex];
+            const unit = hire.unit;
+            
+            // Deduct final payment
+            state.balance -= hire.price;
+            
+            // Mark when unit joined (for grace period before first upkeep payment)
+            unit.joinedAt = Date.now();
+            
+            // Add unit to roster
+            state.units.push(unit);
+            
+            // Remove from pending
+            state.pendingHires.splice(hireIndex, 1);
+            
+            // Show confirmation
+            showToast(`${getUnitDisplayName(unit)} เข้าร่วมหน่วยรบของคุณ!`, "success", 2500);
+            log(`ยืนยันการจ้าง ${getUnitDisplayName(unit)} - จ่ายเงินแล้ว $${Math.floor(hire.price)}`, "text-emerald-400");
+            
+            saveProfile();
+            updatePortfolioUI();
+            updateStatsUI();
+        }
+
+        // --- MP Recovery System ---
+        function updateMPRecovery() {
+            // Recover MP for all units periodically
+            state.units.forEach(u => {
+                if (u.maxMp > 0 && u.mp < u.maxMp) {
+                    // Recovery is slow and based on mpRecovery stat
+                    // Only recover if MP is above 7% threshold or player is actively regenerating
+                    if (u.mp / u.maxMp >= 0.07 || Math.random() < 0.1) { // 10% chance to attempt recovery even below 7%
+                        const recovery = u.mpRecovery || Math.max(1, Math.floor(u.maxMp * 0.005));
+                        u.mp = Math.min(u.maxMp, u.mp + recovery);
+                    }
+                }
+            });
+        }
+        
+        // Start MP recovery interval (every 2 seconds)
+        setInterval(() => {
+            if (state.gameOverState !== 'bankrupt' && state.gameOverState !== 'dead') {
+                updateMPRecovery();
+                updateStatsUI(); // Refresh MP bars in UI
+            }
+        }, 2000);
+        
         function trainUnit(uid) {
             const u = state.units.find(x => x.uid === uid);
             const cost = getTrainingCost(u);
@@ -2545,6 +2950,20 @@
             u.def += defIncrease;
             if (u.heal) u.heal += Math.max(1, healIncrease);
             if (u.spell) u.spell += Math.max(1, spellIncrease);
+            
+            // MP growth for units with magic/healing abilities
+            if (u.maxMp > 0) {
+                // 70% chance to increase max MP
+                if (Math.random() < 0.7) {
+                    const mpIncrease = Math.max(1, Math.floor(u.maxMp * (0.05 + Math.random() * 0.1))); // +5-15% per level
+                    u.maxMp += mpIncrease;
+                    u.mp = Math.min(u.mp + mpIncrease, u.maxMp); // Restore proportionally
+                    
+                    // Improve MP recovery stat as maxMP increases
+                    const recoverIncrease = Math.max(1, Math.floor(u.maxMp * 0.003)); // Recovery increases with maxMp
+                    u.mpRecovery = Math.min(u.mpRecovery + recoverIncrease, Math.floor(u.maxMp * 0.05)); // Cap at 5% per tick
+                }
+            }
             
             // Upkeep scaling: weak units increase very slowly
             if (u.typeId === 'villager') {
@@ -2893,6 +3312,15 @@
             const baseLoot = { near: () => Math.floor(Math.random() * 500) + 300, around: () => Math.floor(Math.random() * 1200) + 800, far: () => Math.floor(Math.random() * 2000) + 1500 };
             rewards.money = Math.floor(baseLoot[type]() * scalingFactor);
             
+            // Apply MP loss from combat encounters
+            const monsterDifficulty = { near: 0, around: 1, far: 2 }[type] || 0;
+            applyMPLossFromCombat(units, monsterDifficulty);
+            
+            // Calculate healer death chance reduction
+            const deathReduction = calculateDeathChanceReduction(units);
+            const baseDeathChance = 0.1;
+            const adjustedDeathChance = Math.max(0.01, baseDeathChance * (1 - deathReduction));
+            
             // Generate random events for each unit
             units.forEach(unit => {
                 const rand = Math.random();
@@ -2900,14 +3328,40 @@
                     eventLog.push(`❌ ${getUnitDisplayName(unit)} โดนโจมตีและบาดเจ็บ สูญเสียจากสำรวจ`);
                     unit.hp = 0;
                     survivors.push(unit); // Still returns but injured
-                } else if (rand < 0.2) {
+                } else if (rand < adjustedDeathChance) {
                     eventLog.push(`☠️ ${getUnitDisplayName(unit)} ตายในการสำรวจ ไม่กลับมา`);
+                    if (deathReduction > 0) {
+                        log(`💙 นักบวชช่วยชีวิตหากเสือกษัตรย์...`, "text-blue-400");
+                    }
                     // Unit dies - don't add to survivors
                 } else if (rand < 0.1 + itemChance) {
-                    const item = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)];
-                    if (item && !item.craftOnly && item.type !== 'Unit') {
-                        eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name} ในการสำรวจ`);
-                        rewards.items.push(item.id);
+                    // Get available items based on exploration type
+                    let availableItems = SHOP_ITEMS.filter(item => {
+                        if (item.craftOnly || item.type === 'Unit') return false;
+                        // Exclude dungeonOnly items for near, include for around/far
+                        if (item.dungeonOnly && type === 'near') return false;
+                        return true;
+                    });
+                    
+                    // Add bonus chance for MP potions in deeper explorations
+                    if (type === 'around') {
+                        for (let i = 0; i < 3; i++) {
+                            const mpMid = SHOP_ITEMS.find(item => item.id === 'mp_potion_mid');
+                            if (mpMid) availableItems.push(mpMid);
+                        }
+                    } else if (type === 'far') {
+                        for (let i = 0; i < 5; i++) {
+                            const mpHigh = SHOP_ITEMS.find(item => item.id === 'mp_potion_high');
+                            if (mpHigh) availableItems.push(mpHigh);
+                        }
+                    }
+                    
+                    if (availableItems.length > 0) {
+                        const item = availableItems[Math.floor(Math.random() * availableItems.length)];
+                        if (item) {
+                            eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name} ในการสำรวจ`);
+                            rewards.items.push(item.id);
+                        }
                     }
                     survivors.push(unit);
                 } else if (rand < 0.6) {
@@ -3515,6 +3969,7 @@
             
             grid.innerHTML = SHOP_ITEMS.map(item => {
                 if (item.craftOnly) return ''; // Hide craft-only items from shop
+                if (item.dungeonOnly) return ''; // Hide dungeon-only items from shop
                 
                 // Filter by type
                 if (filter !== 'all') {
@@ -3554,6 +4009,13 @@
                 const color = item.cursed ? 'text-slate-500' : (diff > 0 ? 'text-rose-400' : 'text-emerald-400');
                 const typeBadge = item.cursed ? 'bg-rose-900/50 text-rose-300' : 'bg-slate-800 text-slate-400';
                 
+                // Format MP potion info if applicable
+                let effectText = '';
+                if (item.mpPotionQuality && item.effect && item.effect.mp) {
+                    const [minMp, maxMp] = item.effect.mp;
+                    effectText = `<p class="text-xs text-blue-400 font-bold mt-1">MP: +${minMp}-${maxMp}</p>`;
+                }
+                
                 return `
                 <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 transition-all group relative overflow-hidden">
                     <div class="flex justify-between items-start">
@@ -3565,6 +4027,7 @@
                     </div>
                     <div class="mt-3">
                         <h4 class="font-bold text-sm">${item.name}</h4>
+                        ${effectText}
                         <p class="text-lg font-mono font-bold ${color}" title="$${price.toLocaleString(undefined, {maximumFractionDigits:0})}" style="cursor: help;">$${formatNumber(price)}</p>
                     </div>
                     <button onclick="buyItem('${item.id}')" ${stock <= 0 ? 'disabled' : ''} class="mt-3 w-full py-2 ${stock <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-800 hover:bg-purple-600 text-white'} rounded-lg text-xs font-bold transition-colors">${stock <= 0 ? 'หมด' : 'ซื้อเลย'}</button>
@@ -3593,7 +4056,13 @@
                     // Generate Use Button if consumable
                     let actionBtn = '';
                     if(itemDef.type === 'Food') {
-                        actionBtn = `<button onclick="useItem('${inv.uid}')" class="px-2 py-1 bg-amber-900/30 text-amber-400 text-[9px] rounded hover:bg-amber-600 hover:text-white">กิน</button>`;
+                        if(itemDef.mpPotionQuality) {
+                            // MP Potion - use on unit
+                            actionBtn = `<button onclick="useMPPotionOnUnit('${inv.uid}')" class="px-2 py-1 bg-blue-900/30 text-blue-400 text-[9px] rounded hover:bg-blue-600 hover:text-white">ใช้</button>`;
+                        } else {
+                            // Regular consumable
+                            actionBtn = `<button onclick="useItem('${inv.uid}')" class="px-2 py-1 bg-amber-900/30 text-amber-400 text-[9px] rounded hover:bg-amber-600 hover:text-white">กิน</button>`;
+                        }
                     } else if(itemDef.isUnit) {
                         // Units are handled in barracks, but if in inventory (bug), can sell
                     } else {
@@ -3745,18 +4214,34 @@
                 newUnit.maxHp = calculateMaxHP(newUnit.level, newUnit.def);
                 newUnit.hp = newUnit.maxHp;
                 
+                // Initialize MP for units with magic/healing abilities
+                if (newUnit.spell > 0 || newUnit.heal > 0) {
+                    // MP is random between 50-200 on purchase
+                    newUnit.maxMp = Math.floor(50 + Math.random() * 150);
+                    newUnit.mp = newUnit.maxMp;
+                    // MP Recovery stat: higher MP = faster recovery, starts slow (starts at 0.5-1.5% of maxMp per interval)
+                    const baseRecoveryPercent = 0.005 + (Math.random() * 0.01); // 0.5% to 1.5%
+                    newUnit.mpRecovery = Math.max(1, Math.floor(newUnit.maxMp * baseRecoveryPercent)); // Min 1 MP per tick
+                } else {
+                    newUnit.maxMp = 0;
+                    newUnit.mp = 0;
+                    newUnit.mpRecovery = 0;
+                }
+                
                 // Assign random custom name
                 newUnit.customName = getRandomUnitName(itemId);
                 
+                // Add unit directly to roster immediately
                 state.units.push(newUnit);
                 showToast(`จ้าง ${getUnitDisplayName(newUnit)} เรียบร้อย`, "success", 2000);
             } else {
                 state.inventory.push({ uid: Date.now() + Math.random(), itemId: itemId, purchasePrice: price });
+                showToast(`ซื้อ ${itemDef.name} เรียบร้อย`, "success", 2000);
             }
 
             saveProfile();
             updatePortfolioUI();
-            updateStatsUI(); // Update stats in case of equip
+            updateStatsUI();
             renderShopUI();
             log(`Bought ${itemId}`, "text-purple-400");
         }
@@ -3782,6 +4267,84 @@
                 // Close and reopen inventory to refresh
                 const modal = document.getElementById('inventory-modal');
                 if (modal) modal.remove();
+                openInventoryModal();
+            }
+        }
+
+        function useMPPotionOnUnit(uid) {
+            const idx = state.inventory.findIndex(i => i.uid == uid);
+            if(idx === -1) return;
+            const inv = state.inventory[idx];
+            const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+            
+            if(!item.effect || !item.effect.mp) return;
+            
+            // Open modal to select which unit to use potion on
+            let modalHTML = `<div id="mp-potion-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+                <div class="glass-card p-6 rounded-3xl max-w-md w-full border-t-4 border-blue-500">
+                    <h2 class="text-2xl font-bold text-blue-400 mb-4 flex items-center gap-2">
+                        <i data-lucide="flask-conical" class="w-6 h-6"></i> เลือก Unit ที่จะใช้ MP Potion
+                    </h2>
+                    <p class="text-sm text-slate-400 mb-4">${item.name}</p>
+                    
+                    <div class="space-y-2 mb-6 max-h-64 overflow-y-auto smooth-scroll">`;
+            
+            // Filter units that have MP
+            const mpUnits = state.units.filter(u => u.maxMp > 0);
+            
+            if (mpUnits.length === 0) {
+                modalHTML += `<p class="text-center text-slate-500 text-sm py-6">ไม่มี Unit ที่มี MP</p>`;
+            } else {
+                mpUnits.forEach(u => {
+                    const mpPercent = (u.mp / u.maxMp) * 100;
+                    const mpColor = mpPercent > 50 ? 'text-blue-400' : mpPercent > 25 ? 'text-amber-400' : 'text-rose-400';
+                    modalHTML += `
+                        <button onclick="applyMPPotion(${u.uid}, ${idx})" class="w-full bg-slate-800/60 hover:bg-slate-700 text-white py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-between">
+                            <span>${getUnitDisplayName(u)}</span>
+                            <span class="${mpColor} font-bold">${u.mp}/${u.maxMp} MP</span>
+                        </button>`;
+                });
+            }
+            
+            modalHTML += `
+                    </div>
+                    <button onclick="document.getElementById('mp-potion-modal').remove()" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg font-bold">ยกเลิก</button>
+                </div>
+            </div>`;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            lucide.createIcons();
+        }
+        
+        function applyMPPotion(unitUid, invIdx) {
+            const inv = state.inventory[invIdx];
+            const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+            const unit = state.units.find(u => u.uid == unitUid);
+            
+            if (!inv || !item || !unit) return;
+            
+            // Calculate MP increase (small amount, not percentage)
+            const [minMp, maxMp] = item.effect.mp || [2, 10];
+            const mpIncrease = Math.floor(minMp + Math.random() * (maxMp - minMp));
+            
+            unit.mp = Math.min(unit.maxMp, unit.mp + mpIncrease);
+            
+            // Remove potion from inventory
+            state.inventory.splice(invIdx, 1);
+            
+            showToast(`${getUnitDisplayName(unit)} ได้ MP +${mpIncrease}`, "success", 2000);
+            log(`ใช้ ${item.name} กับ ${getUnitDisplayName(unit)} (+${mpIncrease} MP)`, "text-blue-400");
+            
+            // Close modal and refresh
+            const modal = document.getElementById('mp-potion-modal');
+            if (modal) modal.remove();
+            
+            saveProfile();
+            updateStatsUI();
+            updatePortfolioUI();
+            
+            if (document.getElementById('inventory-modal')) {
+                document.getElementById('inventory-modal').remove();
                 openInventoryModal();
             }
         }
@@ -4046,6 +4609,7 @@
                 state.loans = acc.loans || [];
                 state.repaymentCount = acc.repaymentCount || 0;
                 state.inventory = acc.inventory || [];
+                state.pendingHires = acc.pendingHires || [];
                 state.shopStock = acc.shopStock || {};
                 state.multiplierLevel = acc.multiplierLevel || 2; // Default to 2 if not set
                 
@@ -4055,6 +4619,7 @@
                 document.getElementById('setup-screen').classList.add('hidden');
                 document.getElementById('main-dashboard').classList.remove('hidden');
                 initP2P();
+                // initPendingHires(); // Disabled - units now join immediately on purchase
                 updateFriendsUI();
                 fetchMarketData();
                 updatePortfolioUI();
@@ -5213,6 +5778,7 @@
             state.inventory = [];
             state.stats = { hp: 100, maxHp: 100, energy: 100, maxEnergy: 100, atk: 10, def: 5 };
             state.units = [];
+            state.pendingHires = [];
             state.multiplierLevel = 2;
             state.gameOverState = null;
             state.lastKnownPrices = {};
@@ -5220,6 +5786,10 @@
             state.capturedUntil = 0;
             state.dungeons = [];
             state.loanAutoPayCount = 0;
+            state.upkeepPaymentStartTime = Date.now();
+            state.lastShownPaymentPhase = -1;
+            state.upkeepWarningStarted = false;
+            state.upkeepWarningPhase = 0;
             
             // Close modals
             closeGameOverModal();
@@ -5322,6 +5892,7 @@
                 state.inventory = saved.inventory || [];
                 state.stats = saved.stats || { hp: 100, maxHp: 100, energy: 100, maxEnergy: 100, atk: 10, def: 5 };
                 state.units = saved.units || [];
+                state.pendingHires = saved.pendingHires || [];
                 state.shopStock = saved.shopStock || {};
                 state.multiplierLevel = saved.multiplierLevel || 2;
                 state.actionCooldowns = saved.actionCooldowns || {};
@@ -5331,6 +5902,11 @@
                 state.gameOverState = saved.gameOverState || null;
                 state.explorationLogs = saved.explorationLogs || [];
                 state.dungeonLogs = saved.dungeonLogs || [];
+                state.upkeepPaymentStartTime = saved.upkeepPaymentStartTime || Date.now();
+                state.lastUpkeepPayTime = saved.lastUpkeepPayTime || Date.now();
+                state.upkeepPaymentPhase = saved.upkeepPaymentPhase || 0;
+                state.upkeepWarningStarted = saved.upkeepWarningStarted || false;
+                state.upkeepWarningPhase = saved.upkeepWarningPhase || 0;
                 
                 // If game was in game-over state, show the appropriate screen
                 if (state.gameOverState === 'bankrupt') {
@@ -5369,6 +5945,8 @@
                 document.getElementById('main-dashboard').classList.remove('hidden');
                 document.getElementById('trading-screen').classList.remove('hidden');
                 await initP2P();
+                // initPendingHires(); // Disabled - units now join immediately on purchase
+                initUpkeepPayment(); // Start upkeep payment system
                 updateFriendsUI();
                 fetchMarketData();
                 updateLoanUI();
@@ -5522,24 +6100,8 @@
                 // Check for liquidations on losing positions
                 checkLiquidations();
                 
-                // Unit Upkeep (Every 1 min approx, here just simple tick)
-                // Let's do a 5% chance every 2 sec (approx every 40s) to pay upkeep
-                if (Math.random() < 0.05 && state.units.length > 0) {
-                    let totalUpkeep = state.units.reduce((s, u) => s + u.upkeep, 0);
-                    if (state.balance >= totalUpkeep) {
-                        state.balance -= totalUpkeep;
-                        log(`Paid unit upkeep: $${totalUpkeep}`, "text-slate-500");
-                    } else {
-                        // Units leave
-                        if (state.units.length > 0) {
-                            const leaver = state.units.pop();
-                            log(`${leaver.name} left due to no payment!`, "text-rose-500");
-                            showAlert("Unit Left", `${leaver.name} หนีไปเพราะคุณไม่มีเงินจ่าย`, "user-x");
-                        }
-                    }
-                    updatePortfolioUI();
-                    updateStatsUI();
-                }
+                // Unit Upkeep is now handled by processUpkeepPayment() in the initUpkeepPayment interval
+                // This function runs every 1 second and manages the 60-second payment cycle
                 
                 saveProfile();
             }, 2000);
