@@ -4710,6 +4710,8 @@
 
         function showScreen(screenId) {
             state.activeScreen = screenId;
+            // Save current screen to localStorage for persistence
+            localStorage.setItem('lastActiveScreen', screenId);
             ['trading-screen', 'loan-screen', 'shop-screen', 'profile-screen', 'crafting-screen', 'dungeon-screen'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
@@ -4728,8 +4730,19 @@
 
         function confirmDeleteAccount(username) {
             if (confirm(`ยืนยันการลบบัญชี "${username}"?`)) {
-                deleteAccount(username).then(() => {
-                    loadAccountsList();
+                deleteAccount(username).then(async () => {
+                    // Check if there are any accounts left
+                    const accounts = await loadAllAccounts();
+                    if (accounts.length === 0) {
+                        // No accounts left, show setup screen and clear saved screen
+                        localStorage.removeItem('lastActiveScreen');
+                        document.getElementById('setup-screen').classList.remove('hidden');
+                        document.getElementById('main-dashboard').classList.add('hidden');
+                        showAlert('บัญชีถูกลบ', 'บัญชีทั้งหมดถูกลบแล้ว กรุณาสร้างบัญชีใหม่', 'trash-2');
+                    } else {
+                        // Still have accounts, reload list
+                        loadAccountsList();
+                    }
                 });
             }
         }
@@ -5987,19 +6000,28 @@
                 state.upkeepPaymentPhase = saved.upkeepPaymentPhase || 0;
                 state.upkeepWarningStarted = saved.upkeepWarningStarted || false;
                 state.upkeepWarningPhase = saved.upkeepWarningPhase || 0;
+                state.activeScreen = null; // Will be set to last screen or default screen
                 
                 // If game was in game-over state, show the appropriate screen
                 if (state.gameOverState === 'bankrupt') {
                     setTimeout(() => {
                         document.getElementById('main-dashboard').classList.remove('hidden');
                         document.getElementById('trading-screen').classList.remove('hidden');
+                        state.activeScreen = 'trading-screen';
                         showBankruptcyScreen();
                     }, 500);
                 } else if (state.gameOverState === 'dead') {
                     setTimeout(() => {
                         document.getElementById('main-dashboard').classList.remove('hidden');
                         document.getElementById('trading-screen').classList.remove('hidden');
+                        state.activeScreen = 'trading-screen';
                         showDeathScreen();
+                    }, 500);
+                } else {
+                    // Restore to last active screen or default to trading screen
+                    const lastScreen = localStorage.getItem('lastActiveScreen') || 'trading-screen';
+                    setTimeout(() => {
+                        showScreen(lastScreen);
                     }, 500);
                 }
                 
