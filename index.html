@@ -32,6 +32,36 @@
         .stat-bar-bg { background: #334155; height: 6px; border-radius: 3px; overflow: hidden; }
         .stat-bar-fill { height: 100%; transition: width 0.3s; }
         
+        /* Horizontal Scrollbar for Accounts List */
+        .accounts-horizontal-scroll {
+            display: flex;
+            max-height: 130px;
+            overflow-y: hidden;
+            overflow-x: auto;
+            gap: 12px;
+            padding-bottom: 4px;
+            margin: 0 -8px;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .account-item {
+            flex-shrink: 0;
+            width: 260px;
+        }
+        
         /* Toast Animation */
         @keyframes fadeOutUp {
             from { opacity: 1; transform: translateY(0); }
@@ -60,7 +90,7 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.5 beta</p>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.6 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -71,7 +101,12 @@
             </div>
 
             <!-- Saved Accounts -->
-            <div id="accounts-list" class="w-full max-w-md mt-8 space-y-3"></div>
+            <div id="accounts-list" class="w-full max-w-md mt-8">
+                <div id="accounts-search-container" class="hidden mb-4">
+                    <input type="text" id="accounts-search-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="ค้นหาบัญชี...">
+                </div>
+                <div id="accounts-list-container" class="space-y-3"></div>
+            </div>
         </div>
 
         <!-- Main Dashboard -->
@@ -986,11 +1021,13 @@
             shopFilter: 'all', // 'all', 'Food', 'Clothing', 'Electronics', 'Vehicle', 'Unit', 'Fantasy', 'Material', 'Luxury', 'Real Estate', 'Other'
             shopSearchTerm: '',
             craftSearchTerm: '',
+            accountSearchTerm: '', // Search term for accounts list
             multiplierLevel: 2, // Starting multiplier cap is 2x, can upgrade to 9999
             activeScreen: 'trading',
             timeframe: '1m', 
             myId: null,
             showId: false,
+            isAtHome: true, // Flag to disable gameplay features when at home screen
             maxUnitCapacity: 2, // Starting with capacity for 2 units
             unitSearchTerm: '', // Search term for unit list filter
             unitFilterCategory: '', // Selected unit category filter ('' = all)
@@ -1316,6 +1353,7 @@
         }
 
         async function fetchRealtimeTick() {
+            if (state.isAtHome) return; // Don't fetch prices when at home screen
             if (!state.candlesticks.length) return;
 
             const symbol = state.currentAsset;
@@ -2641,6 +2679,7 @@
         }
 
         function processUpkeepPayment() {
+            if (state.isAtHome) return; // Don't process upkeep when at home screen
             if (state.units.length === 0) return; // No units = no upkeep
             
             const now = Date.now();
@@ -2791,6 +2830,7 @@
         }
 
         function processPendingHires() {
+            if (state.isAtHome) return; // Don't process hires when at home screen
             if (!state.pendingHires || state.pendingHires.length === 0) return;
             
             const now = Date.now();
@@ -3827,6 +3867,7 @@
 
         // --- Shop System ---
         function updateShopPrices() {
+            if (state.isAtHome) return; // Don't update prices when at home screen
             SHOP_ITEMS.forEach(item => {
                 if (!state.shopPrices[item.id]) state.shopPrices[item.id] = item.basePrice;
                 if (state.shopStock[item.id] === undefined) state.shopStock[item.id] = item.maxStock || 10;
@@ -4564,45 +4605,80 @@
         }
 
         function goToHome() {
+            state.isAtHome = true;
             document.getElementById('main-dashboard').classList.add('hidden');
             document.getElementById('setup-screen').classList.remove('hidden');
             document.getElementById('loan-screen').classList.add('hidden');
             document.getElementById('shop-screen').classList.add('hidden');
             document.getElementById('trading-screen').classList.remove('hidden');
+            
+            // Disconnect peer to prevent operations while at home screen
+            if (state.conn) {
+                state.conn.close();
+                state.conn = null;
+            }
+            
             loadAccountsList();
         }
 
         async function loadAccountsList() {
             const accounts = await loadAllAccounts();
-            const list = document.getElementById('accounts-list');
+            const searchInput = document.getElementById('accounts-search-input');
+            const searchContainer = document.getElementById('accounts-search-container');
+            const listContainer = document.getElementById('accounts-list-container');
             
             if (accounts.length === 0) {
-                list.innerHTML = '';
+                listContainer.innerHTML = '';
+                searchContainer.classList.add('hidden');
                 return;
             }
 
-            list.innerHTML = `
+            // Show search if there are accounts
+            searchContainer.classList.remove('hidden');
+
+            // Filter accounts based on search term
+            const searchTerm = state.accountSearchTerm.toLowerCase();
+            const filteredAccounts = accounts.filter(acc => 
+                acc.username.toLowerCase().includes(searchTerm)
+            );
+
+            listContainer.innerHTML = `
                 <h3 class="text-xs font-bold text-slate-400 uppercase mb-3 px-2">บัญชีที่สร้างไว้</h3>
-                ${accounts.map(acc => `
-                    <div class="glass-card p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
-                        <div class="flex-1">
-                            <p class="font-bold text-sm">${acc.username}</p>
-                            <p class="text-[10px] text-slate-500" title="ยอดเงิน: $${acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}" style="cursor: help;">๏ $${formatNumber(acc.balance)}</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="switchAccount('${acc.username}')" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-[9px] font-bold">เล่น</button>
-                            <button onclick="confirmDeleteAccount('${acc.username}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-3 py-2 rounded-lg text-[9px] font-bold">ลบ</button>
-                        </div>
-                    </div>
-                `).join('')}
+                ${filteredAccounts.length === 0 ? (
+                    `<p class="text-center text-slate-600 text-sm py-6">ไม่พบบัญชี</p>`
+                ) : (
+                    `<div class="accounts-horizontal-scroll">
+                        ${filteredAccounts.map(acc => `
+                            <div class="account-item glass-card p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                                <div class="flex-1">
+                                    <p class="font-bold text-sm">${acc.username}</p>
+                                    <p class="text-[10px] text-slate-500 mt-1" title="ยอดเงิน: $${acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}" style="cursor: help;">๏ $${formatNumber(acc.balance)}</p>
+                                </div>
+                                <div class="flex gap-2 mt-3">
+                                    <button onclick="switchAccount('${acc.username}')" class="flex-1 bg-blue-600 hover:bg-blue-500 px-2 py-2 rounded-lg text-[9px] font-bold">เล่น</button>
+                                    <button onclick="confirmDeleteAccount('${acc.username}')" class="flex-1 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-2 py-2 rounded-lg text-[9px] font-bold">ลบ</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>`
+                )}
             `;
             lucide.createIcons();
+            
+            // Add search input listener
+            if (searchInput) {
+                searchInput.oninput = (e) => {
+                    state.accountSearchTerm = e.target.value;
+                    loadAccountsList();
+                };
+            }
         }
 
         async function switchAccount(username) {
             const accounts = await loadAllAccounts();
             const acc = accounts.find(a => a.username === username);
             if (acc) {
+                state.isAtHome = false;
                 state.username = acc.username;
                 state.balance = acc.balance;
                 state.positions = acc.positions || [];
@@ -5963,7 +6039,36 @@
             document.getElementById('start-btn').onclick = () => {
                 const n = document.getElementById('username-input').value.trim();
                 if (n && n.length > 0) { 
+                    // Reset state to initial values for new account
                     state.username = n; 
+                    state.balance = INITIAL_BALANCE;
+                    state.positions = [];
+                    state.currentAsset = 'BTCUSDT';
+                    state.lastKnownPrices = {};
+                    state.candlesticks = [];
+                    state.loans = [];
+                    state.repaymentCount = 0;
+                    state.inventory = [];
+                    state.stats = { hp: 100, maxHp: 100, energy: 100, maxEnergy: 100, atk: 10, def: 5 };
+                    state.units = [];
+                    state.shopStock = {};
+                    state.shopPrices = {};
+                    state.multiplierLevel = 2;
+                    state.activeScreen = 'trading';
+                    state.timeframe = '1m';
+                    state.maxUnitCapacity = 2;
+                    state.actionCooldowns = {};
+                    state.loanAutoPayCount = 0;
+                    state.capturedUntil = 0;
+                    state.dungeons = [];
+                    state.gameOverState = null;
+                    state.lastUpkeepPayTime = Date.now();
+                    state.upkeepPaymentPhase = 0;
+                    state.upkeepPaymentStartTime = Date.now();
+                    state.lastShownPaymentPhase = -1;
+                    state.upkeepWarningStarted = false;
+                    state.upkeepWarningPhase = 0;
+                    
                     saveProfile(); 
                     location.reload(); 
                 } else {
