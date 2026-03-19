@@ -1463,6 +1463,7 @@
             if (isNaN(size) || size <= 0 || state.balance < size) return showAlert("ยอดเงินไม่พอ", "ตรวจสอบจำนวนเงินทุนของคุณใหม่อีกครั้ง", "alert-circle");
 
             const pos = { id: Date.now(), asset: state.currentAsset, type, entry: state.currentPrice, size, mult };
+            state.balance = parseFloat(state.balance) || 0;
             state.balance -= size;
             state.positions.push(pos);
             log(`Opened ${type} ${pos.asset} x${mult}`, "text-emerald-400 font-bold");
@@ -1483,6 +1484,7 @@
             const rawPct = (p.type === 'LONG' ? (diff / p.entry) : (-diff / p.entry));
             const pnl = rawPct * p.size * p.mult;
 
+            state.balance = parseFloat(state.balance) || 0;
             // For liquidation, only return remaining of the initial capital
             if (isLiquidation) {
                 state.balance += Math.max(0, p.size + pnl);
@@ -1745,6 +1747,7 @@
             if (currentDebt + amt > limit) return showAlert("Credit Limit Exceeded", "วงเงินกู้ของคุณเต็มแล้ว กรุณาชำระหนี้เก่าก่อน", "lock");
 
             state.loans.push({ id: Date.now(), principal: amt, timestamp: Date.now(), paid: false, interestPayCount: 0, paidInterest: 0 });
+            state.balance = parseFloat(state.balance) || 0;
             state.balance += amt;
             input.value = '';
             state.selectedLoanAmount = null; // Reset selection after successful loan
@@ -1764,6 +1767,7 @@
 
             if (state.balance < due) return showAlert("Insufficient Balance", "ยอดเงินไม่พอจ่ายคืน", "alert-triangle");
 
+            state.balance = parseFloat(state.balance) || 0;
             state.balance -= due;
             state.loans[idx].paid = true;
             state.repaymentCount = (state.repaymentCount || 0) + 1;
@@ -1783,6 +1787,7 @@
 
             if (state.balance < interestAmount) return showAlert("Insufficient Balance", "ยอดเงินไม่พอจ่ายดอกเบี้ย", "alert-triangle");
 
+            state.balance = parseFloat(state.balance) || 0;
             state.balance -= interestAmount;
             loan.interestPayCount = (loan.interestPayCount || 0) + 1;
             
@@ -2663,6 +2668,171 @@
             });
         }
 
+        // --- HP DAMAGE & RECOVERY SYSTEM ---
+        function getUnitHealingPower(unit) {
+            // Get healing power from unit stats
+            return unit.heal || 0;
+        }
+        
+        function isHighTierHealer(unit) {
+            // Check if unit is a high-tier healer/priest
+            const typeId = unit.typeId;
+            const healPower = getUnitHealingPower(unit);
+            const level = unit.level || 1;
+            
+            // Premium healers: priest_high, priest_mid, paladin with good healing
+            const premiumHealerTypes = ['priest_high', 'priest_mid', 'priest', 'paladin'];
+            if (premiumHealerTypes.includes(typeId) && level >= 20) return true;
+            
+            // High heal power units
+            if (healPower >= 250 && level >= 30) return true;
+            
+            return false;
+        }
+        
+        function isHighTierTank(unit) {
+            // Check if unit is a high-tier tank (high def)
+            const typeId = unit.typeId;
+            const def = unit.def || 0;
+            const level = unit.level || 1;
+            
+            const tankTypes = ['paladin', 'thief_high', 'warrior'];
+            if (tankTypes.includes(typeId) && def >= 20 && level >= 20) return true;
+            
+            // High def units
+            if (def >= 40 && level >= 30) return true;
+            
+            return false;
+        }
+        
+        function calculateHPRecoveryRate(unit) {
+            // Calculate HP recovery rate per second (in percentage of maxHp)
+            const level = unit.level || 1;
+            const def = unit.def || 0;
+            const healPower = getUnitHealingPower(unit);
+            
+            // Base recovery: very slow (0.001% - 0.08% for regular units)
+            let baseRate = 0.001 + (Math.random() * 0.079); // 0.001 to 0.08
+            
+            // Healer bonus: multiplies recovery rate significantly
+            if (healPower > 0) {
+                const healerBonus = 1 + (healPower / 100); // Linear bonus based on heal power
+                baseRate *= healerBonus;
+            }
+            
+            // Level bonus: higher levels recover faster
+            if (level > 20) {
+                const levelBonus = 1 + ((level - 20) / 100); // Bonus for levels > 20
+                baseRate *= levelBonus;
+            }
+            
+            // High tier bonus
+            if (isHighTierHealer(unit)) {
+                baseRate *= 2; // Double recovery for high tier healers
+            } else if (isHighTierTank(unit)) {
+                baseRate *= 0.5; // Tanks recover slower due to high def
+            }
+            
+            return baseRate;
+        }
+        
+        function calculateUnitDamage(unit, monsterDifficulty, explorationPartySize) {
+            // Calculate damage taken by a unit during exploration/dungeon
+            // Difficulty: 0 = near (weak), 1 = around (medium), 2 = far (hard), 3+ = dungeon
+            
+            const baseDamagePercent = [
+                { min: 0.01, max: 30 },   // near: 0.01% - 30%
+                { min: 5, max: 65 },      // around: 5% - 65%
+                { min: 20, max: 90 },     // far: 20% - 90%
+                { min: 30, max: 99.99 }   // dungeon: 30% - 99.99%
+            ][Math.min(monsterDifficulty, 3)];
+            
+            // Random damage within range
+            let damagePercent = baseDamagePercent.min + (Math.random() * (baseDamagePercent.max - baseDamagePercent.min));
+            
+            // Defense reduces damage
+            const def = unit.def || 0;
+            const defReduction = Math.min(0.7, def / 100); // Max 70% reduction
+            damagePercent *= (1 - defReduction);
+            
+            // Healing power provides small damage reduction
+            const healPower = getUnitHealingPower(unit);
+            if (healPower > 0) {
+                const healReduction = Math.min(0.2, healPower / 500); // Max 20% reduction
+                damagePercent *= (1 - healReduction);
+            }
+            
+            // Party size bonus: more units = less damage per unit (they help)
+            const partySizeBonus = Math.min(0.5, (explorationPartySize - 1) * 0.1); // Up to 50% reduction
+            damagePercent *= (1 - partySizeBonus);
+            
+            // Convert percentage to actual HP damage
+            const damage = Math.max(0.01, (unit.maxHp || 100) * (damagePercent / 100));
+            
+            return damage;
+        }
+        
+        function applyUnitDamageAndDeath(units, monsterDifficulty) {
+            // Apply damage to all units from encounter
+            // Returns { survivors: [...], deaths: [...], injured: [...] }
+            
+            const result = { survivors: [], deaths: [], injured: [] };
+            const partnerSize = units.length;
+            
+            units.forEach(unit => {
+                // Calculate damage
+                const damage = calculateUnitDamage(unit, monsterDifficulty, partnerSize);
+                const hpBefore = unit.hp || unit.maxHp;
+                const hpAfter = Math.max(0, hpBefore - damage);
+                
+                unit.hp = hpAfter;
+                
+                // Check death (hp = 0)
+                if (hpAfter <= 0) {
+                    result.deaths.push({
+                        unit,
+                        damageDealt: damage,
+                        hpBefore
+                    });
+                } else if (hpAfter < hpBefore) {
+                    // Injured but survived
+                    const damagePercent = ((hpBefore - hpAfter) / hpBefore * 100).toFixed(2);
+                    result.injured.push({
+                        unit,
+                        damageDealt: damage,
+                        hpBefore,
+                        hpAfter,
+                        damagePercent
+                    });
+                    result.survivors.push(unit);
+                } else {
+                    // No damage
+                    result.survivors.push(unit);
+                }
+            });
+            
+            return result;
+        }
+        
+        // --- HP Recovery System (runs every 5 seconds) ---
+        function updateUnitHPRecovery() {
+            // Slowly recover HP for all units over time
+            state.units.forEach(unit => {
+                if ((unit.hp || 0) < (unit.maxHp || 100)) {
+                    const recoveryRate = calculateHPRecoveryRate(unit);
+                    const recovery = (unit.maxHp || 100) * (recoveryRate / 100);
+                    unit.hp = Math.min(unit.maxHp || 100, (unit.hp || 0) + recovery);
+                }
+            });
+        }
+        
+        // Start HP recovery interval
+        setInterval(() => {
+            if (state.gameOverState !== 'bankrupt' && state.gameOverState !== 'dead' && !state.isAtHome) {
+                updateUnitHPRecovery();
+            }
+        }, 5000); // Every 5 seconds
+
         // --- Pending Hire System (2-Minute Unit Timeout) ---
         function initPendingHires() {
             if (!state.pendingHires) state.pendingHires = [];
@@ -2683,7 +2853,6 @@
         }
 
         function processUpkeepPayment() {
-            if (state.isAtHome) return; // Don't process upkeep when at home screen
             if (state.units.length === 0) return; // No units = no upkeep
             
             const now = Date.now();
@@ -3123,7 +3292,7 @@
             }
             
             let modalHTML = `<div id="exploration-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-                <div class="glass-card p-6 rounded-3xl max-w-5xl w-full border-t-4 border-yellow-500">
+                <div class="glass-card p-6 rounded-3xl max-w-6xl w-full border-t-4 border-yellow-500">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <!-- Left: History Log -->
                         <div class="md:col-span-1 border-r border-slate-800 pr-4 flex flex-col h-[800px]">
@@ -3518,25 +3687,26 @@
             const monsterDifficulty = { near: 0, around: 1, far: 2 }[type] || 0;
             applyMPLossFromCombat(units, monsterDifficulty);
             
-            // Calculate healer death chance reduction
-            const deathReduction = calculateDeathChanceReduction(units);
-            const baseDeathChance = 0.1;
-            const adjustedDeathChance = Math.max(0.01, baseDeathChance * (1 - deathReduction));
+            // === NEW: Apply damage and check for deaths ===
+            const damageResult = applyUnitDamageAndDeath(units, monsterDifficulty);
             
-            // Generate random events for each unit
-            units.forEach(unit => {
+            // Process deaths - permanently remove dead units
+            damageResult.deaths.forEach(deathInfo => {
+                eventLog.push(`☠️ ${getUnitDisplayName(deathInfo.unit)} ตายแล้วและไม่กลับมา (เสียเลือด ${deathInfo.hpBefore} HP)`);
+            });
+            
+            // Process injured units
+            damageResult.injured.forEach(injuryInfo => {
+                eventLog.push(`❌ ${getUnitDisplayName(injuryInfo.unit)} บาดเจ็บจากการสำรวจ (${injuryInfo.damagePercent}% บาดเจ็บ: ${injuryInfo.hpBefore} → ${injuryInfo.hpAfter.toFixed(1)} HP)`);
+            });
+            
+            // Use survivors from damage calculation (units with hp > 0)
+            survivors = damageResult.survivors;
+            
+            // Generate item findings and other events for survivors only
+            survivors.forEach(unit => {
                 const rand = Math.random();
-                if (rand < 0.1) {
-                    eventLog.push(`❌ ${getUnitDisplayName(unit)} โดนโจมตีและบาดเจ็บ สูญเสียจากสำรวจ`);
-                    unit.hp = 0;
-                    survivors.push(unit); // Still returns but injured
-                } else if (rand < adjustedDeathChance) {
-                    eventLog.push(`☠️ ${getUnitDisplayName(unit)} ตายในการสำรวจ ไม่กลับมา`);
-                    if (deathReduction > 0) {
-                        log(`💙 นักบวชช่วยชีวิตหากเสือกษัตรย์...`, "text-blue-400");
-                    }
-                    // Unit dies - don't add to survivors
-                } else if (rand < 0.1 + itemChance) {
+                if (rand < itemChance) {
                     // Get available items based on exploration type
                     let availableItems = SHOP_ITEMS.filter(item => {
                         if (item.craftOnly || item.type === 'Unit') return false;
@@ -3565,15 +3735,14 @@
                             rewards.items.push(item.id);
                         }
                     }
-                    survivors.push(unit);
-                } else if (rand < 0.6) {
+                } else if (rand < itemChance + 0.2) {
                     const bonus = Math.floor(Math.random() * 200) + 100;
                     rewards.money += bonus;
                     eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
-                    survivors.push(unit);
+                } else if (rand < itemChance + 0.4) {
+                    eventLog.push(`✓ ${getUnitDisplayName(unit)} สำรวจปลอดภัยและกลับมา`);
                 } else {
                     eventLog.push(`✓ ${getUnitDisplayName(unit)} สำรวจปลอดภัย`);
-                    survivors.push(unit);
                 }
             });
             
@@ -3593,14 +3762,17 @@
             }
             
             // Process rewards
+            const totalSent = numUnits;
+            const deathCount = damageResult.deaths.length;
+            
             if (survivors.length === 0) {
-                eventLog = [`⚠️ ทุกคนไม่กลับมา..., ไม่ได้อะไรกลับมา`];
+                eventLog = [`⚠️ ทุกคนไม่กลับมา... (${deathCount} หน่วยตาย) ไม่ได้อะไรกลับมา`];
                 rewards.money = 0;
                 rewards.items = [];
             } else {
                 state.balance += rewards.money;
                 rewards.items.forEach(itemId => {
-                    state.inventory.push({ uid: 'found_' + Date.now(), itemId, purchasePrice: 0 });
+                    state.inventory.push({ uid: 'found_' + Date.now() + Math.random(), itemId, purchasePrice: 0 });
                 });
             }
             
@@ -3614,6 +3786,8 @@
                 type: type,
                 unitsSentCount: numUnits,
                 unitsReturnedCount: survivors.length,
+                unitsDiedCount: damageResult.deaths.length,
+                unitsInjuredCount: damageResult.injured.length,
                 rewards: {
                     money: rewards.money,
                     itemCount: rewards.items.length
@@ -3638,7 +3812,7 @@
             resultHTML += `</div>
                     <div class="bg-yellow-900/30 border border-yellow-700 p-3 rounded-lg mb-6">
                         <p class="font-bold text-yellow-300">รวมผลได้: <span class="text-yellow-400">$${formatNumber(rewards.money)}</span> + ${rewards.items.length} รายการ</p>
-                        <p class="text-sm text-yellow-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${numUnits}</p>
+                        <p class="text-sm text-yellow-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${numUnits} | <span class="text-red-400">ตาย: ${damageResult.deaths.length}</span> | <span class="text-orange-400">บาดเจ็บ: ${damageResult.injured.length}</span></p>
                     </div>
                     <button onclick="closeExplorationResults()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold">รับหน่วยกลับ</button>
                 </div>
@@ -3868,28 +4042,35 @@
             const baseReward = 2000 + (dungeon.level * 500) + (dungeon.depth * 100);
             rewards.money = Math.floor(baseReward * (0.8 + Math.random() * 0.4));
             
-            // Each unit has chance to die or find items
-            exploration.units.forEach(unit => {
-                const survivalChance = Math.max(0.1, 1 - (dungeon.level * 0.08));
+            // === NEW: Apply damage and check for deaths in dungeon ===
+            const damageResult = applyUnitDamageAndDeath(exploration.units, 3); // Difficulty 3 = extreme (dungeon)
+            
+            // Process deaths - permanently remove dead units
+            damageResult.deaths.forEach(deathInfo => {
+                eventLog.push(`☠️ ${getUnitDisplayName(deathInfo.unit)} ตายในดันเจี้ยน (เสียเลือด ${deathInfo.hpBefore} HP)`);
+            });
+            
+            // Process injured units
+            damageResult.injured.forEach(injuryInfo => {
+                eventLog.push(`❌ ${getUnitDisplayName(injuryInfo.unit)} บาดเจ็บในดันเจี้ยน (${injuryInfo.damagePercent}% บาดเจ็บ: ${injuryInfo.hpBefore} → ${injuryInfo.hpAfter.toFixed(1)} HP)`);
+            });
+            
+            // Use survivors from damage calculation + item/money findings
+            survivors = damageResult.survivors;
+            
+            // Generate item findings for survivors only
+            survivors.forEach(unit => {
                 const rand = Math.random();
-                
-                if (rand < 1 - survivalChance) {
-                    eventLog.push(`☠️ ${getUnitDisplayName(unit)} ตายในดันเจี้ยน`);
-                } else if (rand < survivalChance * 0.3) {
+                if (rand < 0.3) {
                     const item = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)];
                     if (item && !item.craftOnly && item.type !== 'Unit') {
                         eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name}`);
                         rewards.items.push(item.id);
                     }
-                    survivors.push(unit);
-                } else {
-                    eventLog.push(`✓ ${getUnitDisplayName(unit)} กลับมาปลอดภัย`);
-                    if (Math.random() < 0.2) {
-                        const bonus = Math.floor(Math.random() * 1000) + 500;
-                        rewards.money += bonus;
-                        eventLog[eventLog.length - 1] += ` และพบเงิน $${bonus}`;
-                    }
-                    survivors.push(unit);
+                } else if (rand < 0.5) {
+                    const bonus = Math.floor(Math.random() * 1000) + 500;
+                    rewards.money += bonus;
+                    eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
                 }
             });
             
@@ -3905,6 +4086,8 @@
                 depth: dungeon.depth,
                 unitsSentCount: exploration.units.length,
                 unitsReturnedCount: survivors.length,
+                unitsDiedCount: damageResult.deaths.length,
+                unitsInjuredCount: damageResult.injured.length,
                 rewards: {
                     money: rewards.money,
                     itemCount: rewards.items.length
@@ -3927,7 +4110,7 @@
             resultHTML += `</div>
                     <div class="bg-amber-900/30 border border-amber-700 p-3 rounded-lg mb-6">
                         <p class="font-bold text-amber-300">ได้รับ: <span class="text-amber-400">$${formatNumber(rewards.money)}</span> + ${rewards.items.length} รายการ</p>
-                        <p class="text-sm text-amber-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${exploration.units.length}</p>
+                        <p class="text-sm text-amber-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${exploration.units.length} | <span class="text-red-400">ตาย: ${damageResult.deaths.length}</span> | <span class="text-orange-400">บาดเจ็บ: ${damageResult.injured.length}</span></p>
                     </div>
                     <button onclick="closeDungeonResults()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold">รับหน่วยกลับ</button>
                 </div>
@@ -4034,6 +4217,9 @@
                 if (!state.shopPrices[item.id]) state.shopPrices[item.id] = item.basePrice;
                 if (state.shopStock[item.id] === undefined) state.shopStock[item.id] = item.maxStock || 10;
 
+                // Ensure price is a valid number
+                state.shopPrices[item.id] = parseFloat(state.shopPrices[item.id]) || item.basePrice;
+                
                 // Random walk
                 const volatility = item.basePrice * 0.02;
                 let change = (Math.random() - 0.5) * volatility;
@@ -4314,6 +4500,11 @@
 
             const price = state.shopPrices[itemId];
             const itemDef = SHOP_ITEMS.find(i => i.id === itemId);
+            
+            // Validate price is a valid number
+            if (!price || isNaN(price) || price <= 0) {
+                return showAlert("Price Error", "ราคาสินค้าไม่ถูกต้อง", "alert-circle");
+            }
 
             if (state.balance < price) return showAlert("No Money", "เงินไม่พอซื้อไอเทมนี้", "frown");
             
@@ -4326,7 +4517,9 @@
             }
 
             // Deduct balance and stock only after checks pass
+            state.balance = parseFloat(state.balance) || 0; // Ensure balance is a number
             state.balance -= price;
+            state.balance = Math.max(0, state.balance); // Ensure balance never goes negative due to float errors
             state.shopStock[itemId]--;
                 
             if (itemDef.isUnit) {
@@ -4974,6 +5167,7 @@
                 updateFriendsUI();
                 log(`Peer identified as: ${data.name}`, "text-blue-400");
             } else if (data.type === 'TRANSFER') {
+                state.balance = parseFloat(state.balance) || 0;
                 state.balance += data.amount;
                 log(`ได้รับเงินโอนจาก ${data.from}: $${formatNumber(data.amount)}`, "text-emerald-400 font-bold");
                 showToast(`เพื่อนชื่อ ${data.from} โอนเงินให้คุณ $${data.amount}`, "success", 2500);
@@ -5102,6 +5296,7 @@
                     // ROB: Steal money with success/failure message
                     const robSuccess = Math.random() < 0.6; // 60% success rate
                     if (robSuccess && state.balance >= data.robAmount) {
+                        state.balance = parseFloat(state.balance) || 0;
                         state.balance -= data.robAmount;
                         msg = `${data.from} ส่ง ${data.unitName} มาปล้น! ปล้นเงินไป $${formatNumber(data.robAmount)}`;
                         log(`ROBBED by ${data.from} (-$${formatNumber(data.robAmount)})`, "text-amber-500 font-bold");
@@ -5747,6 +5942,7 @@
             if (isNaN(amount) || amount <= 0 || state.balance < amount) return showAlert("โอนไม่สำเร็จ", "ยอดเงินคงเหลือไม่พอ", "alert-triangle");
 
             if (state.conn && state.conn.peer === id && state.conn.open) {
+                state.balance = parseFloat(state.balance) || 0;
                 state.balance -= amount;
                 state.conn.send({ type: 'TRANSFER', amount, from: state.username });
                 log(`โอนเงินให้ ${name}: $${amount}`, "text-blue-400");
@@ -6135,7 +6331,8 @@
             
             if (saved?.username) {
                 state.username = saved.username;
-                state.balance = saved.balance ?? INITIAL_BALANCE;
+                state.balance = parseFloat(saved.balance) || INITIAL_BALANCE;
+                state.balance = Math.max(0, state.balance); // Ensure balance is not negative
                 state.positions = saved.positions ?? [];
                 state.loans = saved.loans || [];
                 state.loanAutoPayCount = saved.loanAutoPayCount || 0;
@@ -6252,6 +6449,13 @@
                     state.lastShownPaymentPhase = -1;
                     state.upkeepWarningStarted = false;
                     state.upkeepWarningPhase = 0;
+                    state.isAtHome = false; // Set to false so gameplay features work
+                    
+                    // Initialize shop prices and stock before entering dashboard
+                    SHOP_ITEMS.forEach(item => {
+                        state.shopPrices[item.id] = item.basePrice;
+                        state.shopStock[item.id] = item.maxStock || 10;
+                    });
                     
                     saveProfile(); 
                     location.reload(); 
