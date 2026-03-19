@@ -1855,8 +1855,8 @@
                         return `
                         <div class="unit-card bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col gap-2 group relative" data-unit-name="${displayName}" data-unit-type="${origType}" data-unit-level="${u.level}" data-search-text="${searchText}" data-uid="${u.uid}">
                             <div class="flex justify-between items-center">
-                                <input type="checkbox" class="unit-action-checkbox h-4 w-4 cursor-pointer mr-2" data-uid="${u.uid}" onchange="toggleUnitForAction(${u.uid}, this)">
-                                <div onclick="openUnitRenameModal(${u.uid})" class="cursor-pointer hover:text-blue-400 transition-colors flex-1">
+                                <input type="checkbox" class="unit-action-checkbox h-4 w-4 cursor-pointer mr-2" data-uid="${u.uid}" ${state.selectedUnitsForAction.has(u.uid) ? 'checked' : ''}
+                                onchange="toggleUnitForAction(${u.uid}, this)"> <div onclick="openUnitRenameModal(${u.uid})" class="cursor-pointer hover:text-blue-400 transition-colors flex-1">
                                     <span class="font-bold text-sm text-indigo-400">${displayName}</span>
                                 </div>
                                 <span class="text-[10px] text-rose-400" title="ค่าจ้าง ${u.upkeep}/นาที" style="cursor: help;">-$${formatNumber(u.upkeep)}/min</span>
@@ -4441,11 +4441,8 @@
         function updateUnitSelectionUI() {
             const count = state.selectedUnitsForAction.size;
             
-            // Update all checkboxes
-            document.querySelectorAll('.unit-action-checkbox').forEach(cb => {
-                const uid = parseInt(cb.getAttribute('data-uid'));
-                cb.checked = state.selectedUnitsForAction.has(uid);
-            });
+            // อัปเดต card visual และ button visibility เท่านั้น
+            // ไม่ตั้ง checkbox.checked เพราะมันอัปเดตจากการคลิกผู้ใช้อยู่แล้ว
             
             // Update visual feedback on unit cards
             document.querySelectorAll('.unit-card').forEach(card => {
@@ -4473,15 +4470,25 @@
             }
         }
 
+        function syncCheckboxesToState() {
+            // ใช้เมื่อต้องการ sync checkboxes จากการ select/clear ทั้งหมด
+            document.querySelectorAll('.unit-action-checkbox').forEach(cb => {
+                const uid = parseInt(cb.getAttribute('data-uid'));
+                cb.checked = state.selectedUnitsForAction.has(uid);
+            });
+        }
+
         function selectAllUnits() {
             state.units.forEach(u => {
                 state.selectedUnitsForAction.add(u.uid);
             });
+            syncCheckboxesToState();
             updateUnitSelectionUI();
         }
 
         function clearUnitSelection() {
             state.selectedUnitsForAction.clear();
+            syncCheckboxesToState();
             updateUnitSelectionUI();
         }
 
