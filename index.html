@@ -32,6 +32,36 @@
         .stat-bar-bg { background: #334155; height: 6px; border-radius: 3px; overflow: hidden; }
         .stat-bar-fill { height: 100%; transition: width 0.3s; }
         
+        /* Horizontal Scrollbar for Accounts List */
+        .accounts-horizontal-scroll {
+            display: flex;
+            max-height: 130px;
+            overflow-y: hidden;
+            overflow-x: auto;
+            gap: 12px;
+            padding-bottom: 4px;
+            margin: 0 -8px;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        .accounts-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .account-item {
+            flex-shrink: 0;
+            width: 260px;
+        }
+        
         /* Toast Animation */
         @keyframes fadeOutUp {
             from { opacity: 1; transform: translateY(0); }
@@ -71,7 +101,12 @@
             </div>
 
             <!-- Saved Accounts -->
-            <div id="accounts-list" class="w-full max-w-md mt-8 space-y-3"></div>
+            <div id="accounts-list" class="w-full max-w-md mt-8">
+                <div id="accounts-search-container" class="hidden mb-4">
+                    <input type="text" id="accounts-search-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="ค้นหาบัญชี...">
+                </div>
+                <div id="accounts-list-container" class="space-y-3"></div>
+            </div>
         </div>
 
         <!-- Main Dashboard -->
@@ -986,11 +1021,13 @@
             shopFilter: 'all', // 'all', 'Food', 'Clothing', 'Electronics', 'Vehicle', 'Unit', 'Fantasy', 'Material', 'Luxury', 'Real Estate', 'Other'
             shopSearchTerm: '',
             craftSearchTerm: '',
+            accountSearchTerm: '', // Search term for accounts list
             multiplierLevel: 2, // Starting multiplier cap is 2x, can upgrade to 9999
             activeScreen: 'trading',
             timeframe: '1m', 
             myId: null,
             showId: false,
+            isAtHome: true, // Flag to disable gameplay features when at home screen
             maxUnitCapacity: 2, // Starting with capacity for 2 units
             unitSearchTerm: '', // Search term for unit list filter
             unitFilterCategory: '', // Selected unit category filter ('' = all)
@@ -1134,8 +1171,8 @@
         async function deleteAccount(username) {
             return new Promise(res => {
                 const tx = db.transaction("accounts", "readwrite");
-                const req = tx.objectStore("accounts").delete(username);
-                req.onsuccess = () => res();
+                tx.objectStore("accounts").delete(username);
+                tx.oncomplete = () => res();
             });
         }
 
@@ -1158,23 +1195,27 @@
         async function removeFriend(id) {
             return new Promise(res => {
                 const tx = db.transaction("friends", "readwrite");
-                const req = tx.objectStore("friends").delete(id);
-                req.onsuccess = () => res();
+                tx.objectStore("friends").delete(id);
+                tx.oncomplete = () => res();
             });
         }
 
         async function savePeerID(peerId) {
             return new Promise(res => {
+                // Save Peer ID per account (use username as key)
+                const key = state.username || "current";
                 const tx = db.transaction("peerID", "readwrite");
-                tx.objectStore("peerID").put({ key: "current", id: peerId, savedAt: new Date().getTime() });
+                tx.objectStore("peerID").put({ key: key, id: peerId, savedAt: new Date().getTime() });
                 tx.oncomplete = () => res();
             });
         }
 
         async function loadPeerID() {
             return new Promise(res => {
+                // Load Peer ID per account (use username as key)
+                const key = state.username || "current";
                 const tx = db.transaction("peerID", "readonly");
-                const req = tx.objectStore("peerID").get("current");
+                const req = tx.objectStore("peerID").get(key);
                 req.onsuccess = () => res(req.result?.id || null);
             });
         }
@@ -2621,6 +2662,171 @@
             });
         }
 
+        // --- HP DAMAGE & RECOVERY SYSTEM ---
+        function getUnitHealingPower(unit) {
+            // Get healing power from unit stats
+            return unit.heal || 0;
+        }
+        
+        function isHighTierHealer(unit) {
+            // Check if unit is a high-tier healer/priest
+            const typeId = unit.typeId;
+            const healPower = getUnitHealingPower(unit);
+            const level = unit.level || 1;
+            
+            // Premium healers: priest_high, priest_mid, paladin with good healing
+            const premiumHealerTypes = ['priest_high', 'priest_mid', 'priest', 'paladin'];
+            if (premiumHealerTypes.includes(typeId) && level >= 20) return true;
+            
+            // High heal power units
+            if (healPower >= 250 && level >= 30) return true;
+            
+            return false;
+        }
+        
+        function isHighTierTank(unit) {
+            // Check if unit is a high-tier tank (high def)
+            const typeId = unit.typeId;
+            const def = unit.def || 0;
+            const level = unit.level || 1;
+            
+            const tankTypes = ['paladin', 'thief_high', 'warrior'];
+            if (tankTypes.includes(typeId) && def >= 20 && level >= 20) return true;
+            
+            // High def units
+            if (def >= 40 && level >= 30) return true;
+            
+            return false;
+        }
+        
+        function calculateHPRecoveryRate(unit) {
+            // Calculate HP recovery rate per second (in percentage of maxHp)
+            const level = unit.level || 1;
+            const def = unit.def || 0;
+            const healPower = getUnitHealingPower(unit);
+            
+            // Base recovery: very slow (0.001% - 0.08% for regular units)
+            let baseRate = 0.001 + (Math.random() * 0.079); // 0.001 to 0.08
+            
+            // Healer bonus: multiplies recovery rate significantly
+            if (healPower > 0) {
+                const healerBonus = 1 + (healPower / 100); // Linear bonus based on heal power
+                baseRate *= healerBonus;
+            }
+            
+            // Level bonus: higher levels recover faster
+            if (level > 20) {
+                const levelBonus = 1 + ((level - 20) / 100); // Bonus for levels > 20
+                baseRate *= levelBonus;
+            }
+            
+            // High tier bonus
+            if (isHighTierHealer(unit)) {
+                baseRate *= 2; // Double recovery for high tier healers
+            } else if (isHighTierTank(unit)) {
+                baseRate *= 0.5; // Tanks recover slower due to high def
+            }
+            
+            return baseRate;
+        }
+        
+        function calculateUnitDamage(unit, monsterDifficulty, explorationPartySize) {
+            // Calculate damage taken by a unit during exploration/dungeon
+            // Difficulty: 0 = near (weak), 1 = around (medium), 2 = far (hard), 3+ = dungeon
+            
+            const baseDamagePercent = [
+                { min: 0.01, max: 30 },   // near: 0.01% - 30%
+                { min: 5, max: 65 },      // around: 5% - 65%
+                { min: 20, max: 90 },     // far: 20% - 90%
+                { min: 30, max: 99.99 }   // dungeon: 30% - 99.99%
+            ][Math.min(monsterDifficulty, 3)];
+            
+            // Random damage within range
+            let damagePercent = baseDamagePercent.min + (Math.random() * (baseDamagePercent.max - baseDamagePercent.min));
+            
+            // Defense reduces damage
+            const def = unit.def || 0;
+            const defReduction = Math.min(0.7, def / 100); // Max 70% reduction
+            damagePercent *= (1 - defReduction);
+            
+            // Healing power provides small damage reduction
+            const healPower = getUnitHealingPower(unit);
+            if (healPower > 0) {
+                const healReduction = Math.min(0.2, healPower / 500); // Max 20% reduction
+                damagePercent *= (1 - healReduction);
+            }
+            
+            // Party size bonus: more units = less damage per unit (they help)
+            const partySizeBonus = Math.min(0.5, (explorationPartySize - 1) * 0.1); // Up to 50% reduction
+            damagePercent *= (1 - partySizeBonus);
+            
+            // Convert percentage to actual HP damage
+            const damage = Math.max(0.01, (unit.maxHp || 100) * (damagePercent / 100));
+            
+            return damage;
+        }
+        
+        function applyUnitDamageAndDeath(units, monsterDifficulty) {
+            // Apply damage to all units from encounter
+            // Returns { survivors: [...], deaths: [...], injured: [...] }
+            
+            const result = { survivors: [], deaths: [], injured: [] };
+            const partnerSize = units.length;
+            
+            units.forEach(unit => {
+                // Calculate damage
+                const damage = calculateUnitDamage(unit, monsterDifficulty, partnerSize);
+                const hpBefore = unit.hp || unit.maxHp;
+                const hpAfter = Math.max(0, hpBefore - damage);
+                
+                unit.hp = hpAfter;
+                
+                // Check death (hp = 0)
+                if (hpAfter <= 0) {
+                    result.deaths.push({
+                        unit,
+                        damageDealt: damage,
+                        hpBefore
+                    });
+                } else if (hpAfter < hpBefore) {
+                    // Injured but survived
+                    const damagePercent = ((hpBefore - hpAfter) / hpBefore * 100).toFixed(2);
+                    result.injured.push({
+                        unit,
+                        damageDealt: damage,
+                        hpBefore,
+                        hpAfter,
+                        damagePercent
+                    });
+                    result.survivors.push(unit);
+                } else {
+                    // No damage
+                    result.survivors.push(unit);
+                }
+            });
+            
+            return result;
+        }
+        
+        // --- HP Recovery System (runs every 5 seconds) ---
+        function updateUnitHPRecovery() {
+            // Slowly recover HP for all units over time
+            state.units.forEach(unit => {
+                if ((unit.hp || 0) < (unit.maxHp || 100)) {
+                    const recoveryRate = calculateHPRecoveryRate(unit);
+                    const recovery = (unit.maxHp || 100) * (recoveryRate / 100);
+                    unit.hp = Math.min(unit.maxHp || 100, (unit.hp || 0) + recovery);
+                }
+            });
+        }
+        
+        // Start HP recovery interval
+        setInterval(() => {
+            if (state.gameOverState !== 'bankrupt' && state.gameOverState !== 'dead' && !state.isAtHome) {
+                updateUnitHPRecovery();
+            }
+        }, 5000); // Every 5 seconds
+
         // --- Pending Hire System (2-Minute Unit Timeout) ---
         function initPendingHires() {
             if (!state.pendingHires) state.pendingHires = [];
@@ -2641,6 +2847,7 @@
         }
 
         function processUpkeepPayment() {
+            if (state.isAtHome) return; // Don't process upkeep when at home screen
             if (state.units.length === 0) return; // No units = no upkeep
             
             const now = Date.now();
@@ -2791,6 +2998,7 @@
         }
 
         function processPendingHires() {
+            if (state.isAtHome) return; // Don't process hires when at home screen
             if (!state.pendingHires || state.pendingHires.length === 0) return;
             
             const now = Date.now();
@@ -2997,6 +3205,64 @@
         // Global variable for active explorations
         window.activeExplorations = [];
         window.activeDungeonExplorations = [];
+        
+        // ===== EXPLORATION FILTER HELPERS =====
+        function getProfessionFromTypeId(typeId) {
+            const item = SHOP_ITEMS.find(i => i.id === typeId && i.isUnit);
+            return item ? item.name : typeId;
+        }
+        
+        function getUniqueProfessions() {
+            const professions = new Set();
+            state.units.forEach(unit => {
+                professions.add(unit.typeId);
+            });
+            const uniqueArray = Array.from(professions).sort();
+            return uniqueArray;
+        }
+        
+        function getRankFromTypeId(typeId) {
+            const item = SHOP_ITEMS.find(i => i.id === typeId && i.isUnit);
+            return item && item.rank ? item.rank : '-';
+        }
+        
+        // Calculate unit power for sorting
+        function getUnitPower(unit) {
+            return (unit.atk || 0) * 10 + (unit.level || 0);
+        }
+        
+        function filterAndSortExplorationUnits(units, searchTerm, professionFilter) {
+            let filtered = units.filter(u => {
+                // Filter by profession if specified
+                if (professionFilter && professionFilter !== 'all' && u.typeId !== professionFilter) {
+                    return false;
+                }
+                
+                // Search by name, level, profession, or rank
+                if (searchTerm) {
+                    const displayName = getUnitDisplayName(u).toLowerCase();
+                    const profession = getProfessionFromTypeId(u.typeId).toLowerCase();
+                    const rank = getRankFromTypeId(u.typeId).toLowerCase();
+                    const searchLower = searchTerm.toLowerCase();
+                    
+                    return displayName.includes(searchLower) || 
+                           profession.includes(searchLower) ||
+                           rank.includes(searchLower) ||
+                           u.level.toString().includes(searchLower);
+                }
+                return true;
+            });
+            
+            // Sort by power (atk) then by level (highest first)
+            filtered.sort((a, b) => {
+                const powerA = getUnitPower(a);
+                const powerB = getUnitPower(b);
+                return powerB - powerA;
+            });
+            
+            return filtered;
+        }
+        
         function toggleUnitSelect(idx, cbId) {
             const checkbox = document.getElementById(cbId);
             const container = document.getElementById(`unit-select-${idx}`);
@@ -3010,6 +3276,9 @@
             } else {
                 container.classList.remove('bg-emerald-900/50', 'border-l-4', 'border-emerald-500');
             }
+            
+            // Trigger change event to update info
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         function openExplorationModal() {
@@ -3018,10 +3287,10 @@
             }
             
             let modalHTML = `<div id="exploration-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-                <div class="glass-card p-6 rounded-3xl max-w-5xl w-full border-t-4 border-yellow-500">
+                <div class="glass-card p-6 rounded-3xl max-w-6xl w-full border-t-4 border-yellow-500">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <!-- Left: History Log -->
-                        <div class="md:col-span-1 border-r border-slate-800 pr-4 flex flex-col h-[600px]">
+                        <div class="md:col-span-1 border-r border-slate-800 pr-4 flex flex-col h-[800px]">
                             <h3 class="font-bold text-sm mb-3 flex items-center gap-2 text-yellow-400"><i data-lucide="history" class="w-4 h-4"></i> ประวัติการสำรวจ</h3>
                             <div class="flex-1 overflow-y-auto space-y-3 pr-2 smooth-scroll text-xs">
                                 ${state.explorationLogs && state.explorationLogs.length > 0 ? 
@@ -3051,22 +3320,34 @@
                         </div>
 
                         <!-- Right: Actions (Span 2 cols) -->
-                        <div class="md:col-span-2 flex flex-col h-[600px]">
+                        <div class="md:col-span-2 flex flex-col h-[800px]">
                             <h2 class="text-2xl font-bold mb-4">เลือกการสำรวจ</h2>
                             <p class="text-sm text-slate-300 mb-6">เลือกหน่วยและประเภทการสำรวจ</p>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-1 overflow-y-auto smooth-scroll">
-                                <!-- Unit Selection -->
-                                <div>
+                                <!-- Unit Selection with Filter -->
+                                <div class="flex flex-col">
                                     <h3 class="font-bold text-sm mb-3">หน่วยที่ส่งไปสำรวจ</h3>
-                                    <div class="space-y-2 max-h-60 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">
-                                        ${state.units.map((u, idx) => {
-                                            const cbId = `explore-cb-${idx}`;
-                                            return `<div class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-all" id="unit-select-${idx}" onclick="toggleUnitSelect(${idx}, '${cbId}')">
-                                                <input type="checkbox" id="${cbId}" class="explore-unit-checkbox" value="${u.uid}" style="cursor: pointer;">
-                                                <span class="text-sm flex-1">${getUnitDisplayName(u)}</span>
-                                            </div>`;
-                                        }).join('')}
+                                    
+                                    <!-- Search Input -->
+                                    <div class="mb-3">
+                                        <input type="text" id="exploration-search-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500" placeholder="ค้นหา: ชื่อ, เลเวล, อาชีพ...">
+                                    </div>
+                                    
+                                    <!-- Profession Filter Tabs -->
+                                    <div class="mb-3">
+                                        <p class="text-xs text-slate-400 mb-2">กรอง:</p>
+                                        <div class="flex flex-wrap gap-2 mb-2">
+                                            <button onclick="filterExplorationUnits('all')" data-filter="all" class="exploration-profession-btn px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white text-xs rounded-lg font-semibold transition-all">ทั้งหมด</button>
+                                            ${getUniqueProfessions().map(prof => {
+                                                const profName = getProfessionFromTypeId(prof);
+                                                return `<button onclick="filterExplorationUnits('${prof}')" data-filter="${prof}" class="exploration-profession-btn px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-semibold transition-all">${profName}</button>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Unit List -->
+                                    <div id="exploration-unit-list" class="space-y-2 flex-1 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">
                                     </div>
                                 </div>
                                 
@@ -3120,6 +3401,84 @@
             document.body.insertAdjacentHTML('beforeend', modalHTML);
             lucide.createIcons();
             
+            // Store current filter and search state
+            let explorationFilter = 'all';
+            let explorationSearch = '';
+            let checkedUnitUids = new Set(); // Track checked units across filter changes
+            
+            // Function to update the unit list based on filters
+            window.updateExplorationUnitList = function() {
+                const filtered = filterAndSortExplorationUnits(state.units, explorationSearch, explorationFilter === 'all' ? '' : explorationFilter);
+                const listContainer = document.getElementById('exploration-unit-list');
+                
+                if (!listContainer) return;
+                
+                if (filtered.length === 0) {
+                    listContainer.innerHTML = '<div class="text-center text-slate-500 py-6">ไม่พบหน่วยที่ตรงเงื่อนไข</div>';
+                    return;
+                }
+                
+                listContainer.innerHTML = filtered.map((u) => {
+                    // Find the actual index in state.units
+                    const idx = state.units.findIndex(unit => unit.uid === u.uid);
+                    if (idx === -1) return '';
+                    
+                    const cbId = `explore-cb-${idx}`;
+                    const profession = getProfessionFromTypeId(u.typeId);
+                    const isChecked = checkedUnitUids.has(u.uid);
+                    
+                    return `<div class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-all exploration-unit-item ${isChecked ? 'bg-emerald-900/50 border-l-4 border-emerald-500' : ''}" id="unit-select-${idx}" onclick="toggleUnitSelect(${idx}, '${cbId}')" data-search-text="${getUnitDisplayName(u).toLowerCase()} ${profession.toLowerCase()} ${u.level}" data-unit-type="${u.typeId}">
+                        <input type="checkbox" id="${cbId}" class="explore-unit-checkbox" value="${u.uid}" style="cursor: pointer;" ${isChecked ? 'checked' : ''}>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold truncate">${getUnitDisplayName(u)}</div>
+                            <div class="text-xs text-slate-400">${profession} • ATK: ${u.atk} • Lv.${u.level}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+                
+                // Re-attach checkboxes listeners
+                document.querySelectorAll('.explore-unit-checkbox').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        if (this.checked) {
+                            checkedUnitUids.add(this.value);
+                        } else {
+                            checkedUnitUids.delete(this.value);
+                        }
+                        updateExplorationInfo();
+                    });
+                });
+            };
+            
+            // Function to filter by profession
+            window.filterExplorationUnits = function(profession) {
+                explorationFilter = profession;
+                
+                // Update button styles
+                document.querySelectorAll('.exploration-profession-btn').forEach(btn => {
+                    if (btn.getAttribute('data-filter') === profession) {
+                        btn.classList.remove('bg-slate-700', 'hover:bg-slate-600');
+                        btn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+                    } else {
+                        btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                        btn.classList.add('bg-slate-700', 'hover:bg-slate-600');
+                    }
+                });
+                
+                updateExplorationUnitList();
+            };
+            
+            // Search input handler
+            const searchInput = document.getElementById('exploration-search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    explorationSearch = this.value;
+                    updateExplorationUnitList();
+                });
+            }
+            
+            // Update unit list to show sorted units on load
+            updateExplorationUnitList();
+            
             // Add event listeners
             document.querySelectorAll('.exploration-type').forEach(label => {
                 label.addEventListener('click', function() {
@@ -3131,7 +3490,14 @@
             
             // Add event listeners for unit checkboxes
             document.querySelectorAll('.explore-unit-checkbox').forEach(cb => {
-                cb.addEventListener('change', updateExplorationInfo);
+                cb.addEventListener('change', function() {
+                    if (this.checked) {
+                        checkedUnitUids.add(this.value);
+                    } else {
+                        checkedUnitUids.delete(this.value);
+                    }
+                    updateExplorationInfo();
+                });
             });
             
             // Initial update
@@ -3316,25 +3682,26 @@
             const monsterDifficulty = { near: 0, around: 1, far: 2 }[type] || 0;
             applyMPLossFromCombat(units, monsterDifficulty);
             
-            // Calculate healer death chance reduction
-            const deathReduction = calculateDeathChanceReduction(units);
-            const baseDeathChance = 0.1;
-            const adjustedDeathChance = Math.max(0.01, baseDeathChance * (1 - deathReduction));
+            // === NEW: Apply damage and check for deaths ===
+            const damageResult = applyUnitDamageAndDeath(units, monsterDifficulty);
             
-            // Generate random events for each unit
-            units.forEach(unit => {
+            // Process deaths - permanently remove dead units
+            damageResult.deaths.forEach(deathInfo => {
+                eventLog.push(`☠️ ${getUnitDisplayName(deathInfo.unit)} ตายแล้วและไม่กลับมา (เสียเลือด ${deathInfo.hpBefore} HP)`);
+            });
+            
+            // Process injured units
+            damageResult.injured.forEach(injuryInfo => {
+                eventLog.push(`❌ ${getUnitDisplayName(injuryInfo.unit)} บาดเจ็บจากการสำรวจ (${injuryInfo.damagePercent}% บาดเจ็บ: ${injuryInfo.hpBefore} → ${injuryInfo.hpAfter.toFixed(1)} HP)`);
+            });
+            
+            // Use survivors from damage calculation (units with hp > 0)
+            survivors = damageResult.survivors;
+            
+            // Generate item findings and other events for survivors only
+            survivors.forEach(unit => {
                 const rand = Math.random();
-                if (rand < 0.1) {
-                    eventLog.push(`❌ ${getUnitDisplayName(unit)} โดนโจมตีและบาดเจ็บ สูญเสียจากสำรวจ`);
-                    unit.hp = 0;
-                    survivors.push(unit); // Still returns but injured
-                } else if (rand < adjustedDeathChance) {
-                    eventLog.push(`☠️ ${getUnitDisplayName(unit)} ตายในการสำรวจ ไม่กลับมา`);
-                    if (deathReduction > 0) {
-                        log(`💙 นักบวชช่วยชีวิตหากเสือกษัตรย์...`, "text-blue-400");
-                    }
-                    // Unit dies - don't add to survivors
-                } else if (rand < 0.1 + itemChance) {
+                if (rand < itemChance) {
                     // Get available items based on exploration type
                     let availableItems = SHOP_ITEMS.filter(item => {
                         if (item.craftOnly || item.type === 'Unit') return false;
@@ -3363,15 +3730,14 @@
                             rewards.items.push(item.id);
                         }
                     }
-                    survivors.push(unit);
-                } else if (rand < 0.6) {
+                } else if (rand < itemChance + 0.2) {
                     const bonus = Math.floor(Math.random() * 200) + 100;
                     rewards.money += bonus;
                     eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
-                    survivors.push(unit);
+                } else if (rand < itemChance + 0.4) {
+                    eventLog.push(`✓ ${getUnitDisplayName(unit)} สำรวจปลอดภัยและกลับมา`);
                 } else {
                     eventLog.push(`✓ ${getUnitDisplayName(unit)} สำรวจปลอดภัย`);
-                    survivors.push(unit);
                 }
             });
             
@@ -3391,14 +3757,17 @@
             }
             
             // Process rewards
+            const totalSent = numUnits;
+            const deathCount = damageResult.deaths.length;
+            
             if (survivors.length === 0) {
-                eventLog = [`⚠️ ทุกคนไม่กลับมา..., ไม่ได้อะไรกลับมา`];
+                eventLog = [`⚠️ ทุกคนไม่กลับมา... (${deathCount} หน่วยตาย) ไม่ได้อะไรกลับมา`];
                 rewards.money = 0;
                 rewards.items = [];
             } else {
                 state.balance += rewards.money;
                 rewards.items.forEach(itemId => {
-                    state.inventory.push({ uid: 'found_' + Date.now(), itemId, purchasePrice: 0 });
+                    state.inventory.push({ uid: 'found_' + Date.now() + Math.random(), itemId, purchasePrice: 0 });
                 });
             }
             
@@ -3412,6 +3781,8 @@
                 type: type,
                 unitsSentCount: numUnits,
                 unitsReturnedCount: survivors.length,
+                unitsDiedCount: damageResult.deaths.length,
+                unitsInjuredCount: damageResult.injured.length,
                 rewards: {
                     money: rewards.money,
                     itemCount: rewards.items.length
@@ -3436,7 +3807,7 @@
             resultHTML += `</div>
                     <div class="bg-yellow-900/30 border border-yellow-700 p-3 rounded-lg mb-6">
                         <p class="font-bold text-yellow-300">รวมผลได้: <span class="text-yellow-400">$${formatNumber(rewards.money)}</span> + ${rewards.items.length} รายการ</p>
-                        <p class="text-sm text-yellow-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${numUnits}</p>
+                        <p class="text-sm text-yellow-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${numUnits} | <span class="text-red-400">ตาย: ${damageResult.deaths.length}</span> | <span class="text-orange-400">บาดเจ็บ: ${damageResult.injured.length}</span></p>
                     </div>
                     <button onclick="closeExplorationResults()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold">รับหน่วยกลับ</button>
                 </div>
@@ -3666,28 +4037,35 @@
             const baseReward = 2000 + (dungeon.level * 500) + (dungeon.depth * 100);
             rewards.money = Math.floor(baseReward * (0.8 + Math.random() * 0.4));
             
-            // Each unit has chance to die or find items
-            exploration.units.forEach(unit => {
-                const survivalChance = Math.max(0.1, 1 - (dungeon.level * 0.08));
+            // === NEW: Apply damage and check for deaths in dungeon ===
+            const damageResult = applyUnitDamageAndDeath(exploration.units, 3); // Difficulty 3 = extreme (dungeon)
+            
+            // Process deaths - permanently remove dead units
+            damageResult.deaths.forEach(deathInfo => {
+                eventLog.push(`☠️ ${getUnitDisplayName(deathInfo.unit)} ตายในดันเจี้ยน (เสียเลือด ${deathInfo.hpBefore} HP)`);
+            });
+            
+            // Process injured units
+            damageResult.injured.forEach(injuryInfo => {
+                eventLog.push(`❌ ${getUnitDisplayName(injuryInfo.unit)} บาดเจ็บในดันเจี้ยน (${injuryInfo.damagePercent}% บาดเจ็บ: ${injuryInfo.hpBefore} → ${injuryInfo.hpAfter.toFixed(1)} HP)`);
+            });
+            
+            // Use survivors from damage calculation + item/money findings
+            survivors = damageResult.survivors;
+            
+            // Generate item findings for survivors only
+            survivors.forEach(unit => {
                 const rand = Math.random();
-                
-                if (rand < 1 - survivalChance) {
-                    eventLog.push(`☠️ ${getUnitDisplayName(unit)} ตายในดันเจี้ยน`);
-                } else if (rand < survivalChance * 0.3) {
+                if (rand < 0.3) {
                     const item = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)];
                     if (item && !item.craftOnly && item.type !== 'Unit') {
                         eventLog.push(`✨ ${getUnitDisplayName(unit)} พบ ${item.name}`);
                         rewards.items.push(item.id);
                     }
-                    survivors.push(unit);
-                } else {
-                    eventLog.push(`✓ ${getUnitDisplayName(unit)} กลับมาปลอดภัย`);
-                    if (Math.random() < 0.2) {
-                        const bonus = Math.floor(Math.random() * 1000) + 500;
-                        rewards.money += bonus;
-                        eventLog[eventLog.length - 1] += ` และพบเงิน $${bonus}`;
-                    }
-                    survivors.push(unit);
+                } else if (rand < 0.5) {
+                    const bonus = Math.floor(Math.random() * 1000) + 500;
+                    rewards.money += bonus;
+                    eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
                 }
             });
             
@@ -3703,6 +4081,8 @@
                 depth: dungeon.depth,
                 unitsSentCount: exploration.units.length,
                 unitsReturnedCount: survivors.length,
+                unitsDiedCount: damageResult.deaths.length,
+                unitsInjuredCount: damageResult.injured.length,
                 rewards: {
                     money: rewards.money,
                     itemCount: rewards.items.length
@@ -3725,7 +4105,7 @@
             resultHTML += `</div>
                     <div class="bg-amber-900/30 border border-amber-700 p-3 rounded-lg mb-6">
                         <p class="font-bold text-amber-300">ได้รับ: <span class="text-amber-400">$${formatNumber(rewards.money)}</span> + ${rewards.items.length} รายการ</p>
-                        <p class="text-sm text-amber-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${exploration.units.length}</p>
+                        <p class="text-sm text-amber-200 mt-2">หน่วยที่กลับมา: <span class="font-bold">${survivors.length}</span> / ${exploration.units.length} | <span class="text-red-400">ตาย: ${damageResult.deaths.length}</span> | <span class="text-orange-400">บาดเจ็บ: ${damageResult.injured.length}</span></p>
                     </div>
                     <button onclick="closeDungeonResults()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold">รับหน่วยกลับ</button>
                 </div>
@@ -3827,6 +4207,7 @@
 
         // --- Shop System ---
         function updateShopPrices() {
+            if (state.isAtHome) return; // Don't update prices when at home screen
             SHOP_ITEMS.forEach(item => {
                 if (!state.shopPrices[item.id]) state.shopPrices[item.id] = item.basePrice;
                 if (state.shopStock[item.id] === undefined) state.shopStock[item.id] = item.maxStock || 10;
@@ -4564,45 +4945,80 @@
         }
 
         function goToHome() {
+            state.isAtHome = true;
             document.getElementById('main-dashboard').classList.add('hidden');
             document.getElementById('setup-screen').classList.remove('hidden');
             document.getElementById('loan-screen').classList.add('hidden');
             document.getElementById('shop-screen').classList.add('hidden');
             document.getElementById('trading-screen').classList.remove('hidden');
+            
+            // Disconnect peer to prevent operations while at home screen
+            if (state.conn) {
+                state.conn.close();
+                state.conn = null;
+            }
+            
             loadAccountsList();
         }
 
         async function loadAccountsList() {
             const accounts = await loadAllAccounts();
-            const list = document.getElementById('accounts-list');
+            const searchInput = document.getElementById('accounts-search-input');
+            const searchContainer = document.getElementById('accounts-search-container');
+            const listContainer = document.getElementById('accounts-list-container');
             
             if (accounts.length === 0) {
-                list.innerHTML = '';
+                listContainer.innerHTML = '';
+                searchContainer.classList.add('hidden');
                 return;
             }
 
-            list.innerHTML = `
+            // Show search if there are accounts
+            searchContainer.classList.remove('hidden');
+
+            // Filter accounts based on search term
+            const searchTerm = state.accountSearchTerm.toLowerCase();
+            const filteredAccounts = accounts.filter(acc => 
+                acc.username.toLowerCase().includes(searchTerm)
+            );
+
+            listContainer.innerHTML = `
                 <h3 class="text-xs font-bold text-slate-400 uppercase mb-3 px-2">บัญชีที่สร้างไว้</h3>
-                ${accounts.map(acc => `
-                    <div class="glass-card p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
-                        <div class="flex-1">
-                            <p class="font-bold text-sm">${acc.username}</p>
-                            <p class="text-[10px] text-slate-500" title="ยอดเงิน: $${acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}" style="cursor: help;">๏ $${formatNumber(acc.balance)}</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="switchAccount('${acc.username}')" class="bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded-lg text-[9px] font-bold">เล่น</button>
-                            <button onclick="confirmDeleteAccount('${acc.username}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-3 py-2 rounded-lg text-[9px] font-bold">ลบ</button>
-                        </div>
-                    </div>
-                `).join('')}
+                ${filteredAccounts.length === 0 ? (
+                    `<p class="text-center text-slate-600 text-sm py-6">ไม่พบบัญชี</p>`
+                ) : (
+                    `<div class="accounts-horizontal-scroll">
+                        ${filteredAccounts.map(acc => `
+                            <div class="account-item glass-card p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                                <div class="flex-1">
+                                    <p class="font-bold text-sm">${acc.username}</p>
+                                    <p class="text-[10px] text-slate-500 mt-1" title="ยอดเงิน: $${acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}" style="cursor: help;">๏ $${formatNumber(acc.balance)}</p>
+                                </div>
+                                <div class="flex gap-2 mt-3">
+                                    <button onclick="switchAccount('${acc.username}')" class="flex-1 bg-blue-600 hover:bg-blue-500 px-2 py-2 rounded-lg text-[9px] font-bold">เล่น</button>
+                                    <button onclick="confirmDeleteAccount('${acc.username}')" class="flex-1 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-2 py-2 rounded-lg text-[9px] font-bold">ลบ</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>`
+                )}
             `;
             lucide.createIcons();
+            
+            // Add search input listener
+            if (searchInput) {
+                searchInput.oninput = (e) => {
+                    state.accountSearchTerm = e.target.value;
+                    loadAccountsList();
+                };
+            }
         }
 
         async function switchAccount(username) {
             const accounts = await loadAllAccounts();
             const acc = accounts.find(a => a.username === username);
             if (acc) {
+                state.isAtHome = false;
                 state.username = acc.username;
                 state.balance = acc.balance;
                 state.positions = acc.positions || [];
@@ -4629,7 +5045,9 @@
         }
 
         function showScreen(screenId) {
-            state.activeScreen = screenId;
+            state.isAtHome = (screenId === 'home');
+            // Save current screen to localStorage for persistence
+            localStorage.setItem('lastActiveScreen', screenId);
             ['trading-screen', 'loan-screen', 'shop-screen', 'profile-screen', 'crafting-screen', 'dungeon-screen'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
@@ -4643,13 +5061,23 @@
                  if(state.chart) state.chart.update(); // redraw chart just in case
                  updateMultiplierUI();
             }
-            updateMultiplierUI(); // Always update to keep UI in sync
         }
 
         function confirmDeleteAccount(username) {
             if (confirm(`ยืนยันการลบบัญชี "${username}"?`)) {
-                deleteAccount(username).then(() => {
-                    loadAccountsList();
+                deleteAccount(username).then(async () => {
+                    // Check if there are any accounts left
+                    const accounts = await loadAllAccounts();
+                    if (accounts.length === 0) {
+                        // No accounts left, show setup screen and clear saved screen
+                        localStorage.removeItem('lastActiveScreen');
+                        document.getElementById('setup-screen').classList.remove('hidden');
+                        document.getElementById('main-dashboard').classList.add('hidden');
+                        showAlert('บัญชีถูกลบ', 'บัญชีทั้งหมดถูกลบแล้ว กรุณาสร้างบัญชีใหม่', 'trash-2');
+                    } else {
+                        // Still have accounts, reload list
+                        loadAccountsList();
+                    }
                 });
             }
         }
@@ -5655,10 +6083,10 @@
         }
 
         function updateFriendsUI() {
-            // Update leaderboard if modal is open
+            // Only refresh leaderboard content if modal is currently visible
             const modal = document.getElementById('leaderboard-modal');
-            if (modal) {
-                closeLeaderboardModal();
+            if (modal && !modal.classList.contains('hidden')) {
+                // Safely refresh leaderboard content without closing/reopening
                 openLeaderboardModal();
             }
         }
@@ -5907,19 +6335,28 @@
                 state.upkeepPaymentPhase = saved.upkeepPaymentPhase || 0;
                 state.upkeepWarningStarted = saved.upkeepWarningStarted || false;
                 state.upkeepWarningPhase = saved.upkeepWarningPhase || 0;
+                state.activeScreen = null; // Will be set to last screen or default screen
                 
                 // If game was in game-over state, show the appropriate screen
                 if (state.gameOverState === 'bankrupt') {
                     setTimeout(() => {
                         document.getElementById('main-dashboard').classList.remove('hidden');
                         document.getElementById('trading-screen').classList.remove('hidden');
+                        state.activeScreen = 'trading-screen';
                         showBankruptcyScreen();
                     }, 500);
                 } else if (state.gameOverState === 'dead') {
                     setTimeout(() => {
                         document.getElementById('main-dashboard').classList.remove('hidden');
                         document.getElementById('trading-screen').classList.remove('hidden');
+                        state.activeScreen = 'trading-screen';
                         showDeathScreen();
+                    }, 500);
+                } else {
+                    // Restore to last active screen or default to trading screen
+                    const lastScreen = localStorage.getItem('lastActiveScreen') || 'trading-screen';
+                    setTimeout(() => {
+                        showScreen(lastScreen);
                     }, 500);
                 }
                 
@@ -5942,13 +6379,17 @@
                 }
                 
                 state.friends = await loadAllFriends();
-                document.getElementById('main-dashboard').classList.remove('hidden');
-                document.getElementById('trading-screen').classList.remove('hidden');
+                // Show dashboard only once
+                if (!document.getElementById('main-dashboard').classList.contains('show')) {
+                    document.getElementById('main-dashboard').classList.remove('hidden');
+                    document.getElementById('trading-screen').classList.remove('hidden');
+                    document.getElementById('main-dashboard').classList.add('show');
+                }
                 await initP2P();
                 // initPendingHires(); // Disabled - units now join immediately on purchase
                 initUpkeepPayment(); // Start upkeep payment system
                 updateFriendsUI();
-                fetchMarketData();
+                await fetchMarketData(); // MUST await to load candlesticks before real-time ticking
                 updateLoanUI();
                 updateShopPrices(); // init prices
                 updateStatsUI();
@@ -5963,7 +6404,36 @@
             document.getElementById('start-btn').onclick = () => {
                 const n = document.getElementById('username-input').value.trim();
                 if (n && n.length > 0) { 
+                    // Reset state to initial values for new account
                     state.username = n; 
+                    state.balance = INITIAL_BALANCE;
+                    state.positions = [];
+                    state.currentAsset = 'BTCUSDT';
+                    state.lastKnownPrices = {};
+                    state.candlesticks = [];
+                    state.loans = [];
+                    state.repaymentCount = 0;
+                    state.inventory = [];
+                    state.stats = { hp: 100, maxHp: 100, energy: 100, maxEnergy: 100, atk: 10, def: 5 };
+                    state.units = [];
+                    state.shopStock = {};
+                    state.shopPrices = {};
+                    state.multiplierLevel = 2;
+                    state.activeScreen = 'trading';
+                    state.timeframe = '1m';
+                    state.maxUnitCapacity = 2;
+                    state.actionCooldowns = {};
+                    state.loanAutoPayCount = 0;
+                    state.capturedUntil = 0;
+                    state.dungeons = [];
+                    state.gameOverState = null;
+                    state.lastUpkeepPayTime = Date.now();
+                    state.upkeepPaymentPhase = 0;
+                    state.upkeepPaymentStartTime = Date.now();
+                    state.lastShownPaymentPhase = -1;
+                    state.upkeepWarningStarted = false;
+                    state.upkeepWarningPhase = 0;
+                    
                     saveProfile(); 
                     location.reload(); 
                 } else {
