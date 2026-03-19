@@ -2248,7 +2248,8 @@
             const affectingItems = [];
             state.inventory.forEach(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                if (item && item.effect) {
+                // Only show items with effect and exclude Food items
+                if (item && item.effect && item.type !== 'Food') {
                     affectingItems.push({ itemDef: item, inv: inv });
                 }
             });
@@ -2272,8 +2273,6 @@
                         if (key === 'energy') color = 'text-amber-400';
                         return `<span class="font-mono ${color}">${sign}${value} ${key.toUpperCase()}</span>`;
                     }).join(', ');
-
-                    const sellPrice = calculateSellPrice(inv.itemId, itemDef.basePrice);
                     
                     modalHTML += `
                     <div class="bg-slate-900 border border-slate-800 p-4 rounded-lg">
@@ -2282,14 +2281,10 @@
                                 <p class="font-bold text-blue-300">${itemDef.name}</p>
                                 <p class="text-[10px] text-slate-500 mt-1">ประเภท: ${itemDef.type}</p>
                             </div>
-                            <div class="text-right">
-                                <p class="text-yellow-400 font-bold">$${sellPrice}</p>
-                            </div>
                         </div>
-                        <div class="bg-slate-800/50 p-2 rounded mb-3 text-sm">
+                        <div class="bg-slate-800/50 p-2 rounded text-sm">
                             ${effects}
                         </div>
-                        <button onclick="sellItem('${inv.uid}')" class="w-full bg-orange-600 hover:bg-orange-500 text-white px-3 py-2 rounded text-sm font-bold transition-all">ขาย</button>
                     </div>`;
                 });
             }
@@ -2668,6 +2663,12 @@
             return unit.heal || 0;
         }
         
+        function isSpecializedMagicProfession(typeId) {
+            // Check if unit is a specialized magic profession (only mages and priests)
+            const specializedTypes = ['mage', 'mage_mid', 'mage_high', 'priest', 'priest_mid', 'priest_high'];
+            return specializedTypes.includes(typeId);
+        }
+        
         function isHighTierHealer(unit) {
             // Check if unit is a high-tier healer/priest
             const typeId = unit.typeId;
@@ -2822,7 +2823,7 @@
         
         // Start HP recovery interval
         setInterval(() => {
-            if (state.gameOverState !== 'bankrupt' && state.gameOverState !== 'dead' && !state.isAtHome) {
+            if (state.gameOverState !== 'bankrupt' && state.gameOverState !== 'dead') {
                 updateUnitHPRecovery();
             }
         }, 5000); // Every 5 seconds
@@ -2847,7 +2848,8 @@
         }
 
         function processUpkeepPayment() {
-            if (state.isAtHome) return; // Don't process upkeep when at home screen
+            // Don't process upkeep when player is at setup/home screen
+            if (document.getElementById('main-dashboard').classList.contains('hidden')) return;
             if (state.units.length === 0) return; // No units = no upkeep
             
             const now = Date.now();
@@ -2998,7 +3000,8 @@
         }
 
         function processPendingHires() {
-            if (state.isAtHome) return; // Don't process hires when at home screen
+            // Don't process pending hires when player is at setup/home screen
+            if (document.getElementById('main-dashboard').classList.contains('hidden')) return;
             if (!state.pendingHires || state.pendingHires.length === 0) return;
             
             const now = Date.now();
@@ -4207,7 +4210,7 @@
 
         // --- Shop System ---
         function updateShopPrices() {
-            if (state.isAtHome) return; // Don't update prices when at home screen
+            // Update prices should happen regardless of screen - this is a background process
             SHOP_ITEMS.forEach(item => {
                 if (!state.shopPrices[item.id]) state.shopPrices[item.id] = item.basePrice;
                 if (state.shopStock[item.id] === undefined) state.shopStock[item.id] = item.maxStock || 10;
@@ -4220,8 +4223,11 @@
                 newPrice = Math.max(item.basePrice * 0.5, Math.min(item.basePrice * 2, newPrice));
                 state.shopPrices[item.id] = newPrice;
             });
-            if(state.activeScreen === 'shop-screen') renderShopUI();
+            // Always update inventory modal if it's open, and re-render shop if visible
             if(document.getElementById('inventory-modal')) updateInventoryModalPrices();
+            if(state.activeScreen === 'shop-screen') {
+                renderShopUI();
+            }
         }
 
         function updateInventoryModalPrices() {
@@ -4597,11 +4603,20 @@
                 
                 // Initialize MP for units with magic/healing abilities
                 if (newUnit.spell > 0 || newUnit.heal > 0) {
-                    // MP is random between 50-200 on purchase
-                    newUnit.maxMp = Math.floor(50 + Math.random() * 150);
+                    // MP differs based on profession specialization
+                    let baseRecoveryPercent;
+                    if (isSpecializedMagicProfession(itemId)) {
+                        // Specialized magic professions (mages/priests): Normal Max MP (50-200)
+                        newUnit.maxMp = Math.floor(50 + Math.random() * 150);
+                        // Normal MP recovery (0.5-1.5%)
+                        baseRecoveryPercent = 0.005 + (Math.random() * 0.01); // 0.5% to 1.5%
+                    } else {
+                        // Non-specialized professions with magic abilities: Much lower Max MP (10-40)
+                        newUnit.maxMp = Math.floor(10 + Math.random() * 30);
+                        // Much lower MP recovery (0.05-0.15%)
+                        baseRecoveryPercent = 0.0005 + (Math.random() * 0.001); // 0.05% to 0.15%
+                    }
                     newUnit.mp = newUnit.maxMp;
-                    // MP Recovery stat: higher MP = faster recovery, starts slow (starts at 0.5-1.5% of maxMp per interval)
-                    const baseRecoveryPercent = 0.005 + (Math.random() * 0.01); // 0.5% to 1.5%
                     newUnit.mpRecovery = Math.max(1, Math.floor(newUnit.maxMp * baseRecoveryPercent)); // Min 1 MP per tick
                 } else {
                     newUnit.maxMp = 0;
@@ -5045,7 +5060,9 @@
         }
 
         function showScreen(screenId) {
-            state.isAtHome = (screenId === 'home');
+            // isAtHome is only true when at setup/home screen (not 'home' screenId, but when main-dashboard is hidden)
+            state.isAtHome = false; // Always false while using any game screen
+            state.activeScreen = screenId; // Update current active screen
             // Save current screen to localStorage for persistence
             localStorage.setItem('lastActiveScreen', screenId);
             ['trading-screen', 'loan-screen', 'shop-screen', 'profile-screen', 'crafting-screen', 'dungeon-screen'].forEach(id => {
@@ -5053,7 +5070,10 @@
             });
             document.getElementById(screenId).classList.remove('hidden');
             if(screenId === 'loan-screen') updateLoanUI();
-            if(screenId === 'shop-screen') renderShopUI();
+            if(screenId === 'shop-screen') {
+                updateShopPrices(); // Ensure prices are current before rendering
+                renderShopUI();
+            }
             if(screenId === 'profile-screen') updateStatsUI();
             if(screenId === 'crafting-screen') renderCraftingUI();
             if(screenId === 'dungeon-screen') updateDungeonUI();
