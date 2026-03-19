@@ -3041,6 +3041,64 @@
         // Global variable for active explorations
         window.activeExplorations = [];
         window.activeDungeonExplorations = [];
+        
+        // ===== EXPLORATION FILTER HELPERS =====
+        function getProfessionFromTypeId(typeId) {
+            const item = SHOP_ITEMS.find(i => i.id === typeId && i.isUnit);
+            return item ? item.name : typeId;
+        }
+        
+        function getUniqueProfessions() {
+            const professions = new Set();
+            state.units.forEach(unit => {
+                professions.add(unit.typeId);
+            });
+            const uniqueArray = Array.from(professions).sort();
+            return uniqueArray;
+        }
+        
+        function getRankFromTypeId(typeId) {
+            const item = SHOP_ITEMS.find(i => i.id === typeId && i.isUnit);
+            return item && item.rank ? item.rank : '-';
+        }
+        
+        // Calculate unit power for sorting
+        function getUnitPower(unit) {
+            return (unit.atk || 0) * 10 + (unit.level || 0);
+        }
+        
+        function filterAndSortExplorationUnits(units, searchTerm, professionFilter) {
+            let filtered = units.filter(u => {
+                // Filter by profession if specified
+                if (professionFilter && professionFilter !== 'all' && u.typeId !== professionFilter) {
+                    return false;
+                }
+                
+                // Search by name, level, profession, or rank
+                if (searchTerm) {
+                    const displayName = getUnitDisplayName(u).toLowerCase();
+                    const profession = getProfessionFromTypeId(u.typeId).toLowerCase();
+                    const rank = getRankFromTypeId(u.typeId).toLowerCase();
+                    const searchLower = searchTerm.toLowerCase();
+                    
+                    return displayName.includes(searchLower) || 
+                           profession.includes(searchLower) ||
+                           rank.includes(searchLower) ||
+                           u.level.toString().includes(searchLower);
+                }
+                return true;
+            });
+            
+            // Sort by power (atk) then by level (highest first)
+            filtered.sort((a, b) => {
+                const powerA = getUnitPower(a);
+                const powerB = getUnitPower(b);
+                return powerB - powerA;
+            });
+            
+            return filtered;
+        }
+        
         function toggleUnitSelect(idx, cbId) {
             const checkbox = document.getElementById(cbId);
             const container = document.getElementById(`unit-select-${idx}`);
@@ -3054,6 +3112,9 @@
             } else {
                 container.classList.remove('bg-emerald-900/50', 'border-l-4', 'border-emerald-500');
             }
+            
+            // Trigger change event to update info
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         function openExplorationModal() {
@@ -3065,7 +3126,7 @@
                 <div class="glass-card p-6 rounded-3xl max-w-5xl w-full border-t-4 border-yellow-500">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <!-- Left: History Log -->
-                        <div class="md:col-span-1 border-r border-slate-800 pr-4 flex flex-col h-[600px]">
+                        <div class="md:col-span-1 border-r border-slate-800 pr-4 flex flex-col h-[800px]">
                             <h3 class="font-bold text-sm mb-3 flex items-center gap-2 text-yellow-400"><i data-lucide="history" class="w-4 h-4"></i> ประวัติการสำรวจ</h3>
                             <div class="flex-1 overflow-y-auto space-y-3 pr-2 smooth-scroll text-xs">
                                 ${state.explorationLogs && state.explorationLogs.length > 0 ? 
@@ -3095,22 +3156,34 @@
                         </div>
 
                         <!-- Right: Actions (Span 2 cols) -->
-                        <div class="md:col-span-2 flex flex-col h-[600px]">
+                        <div class="md:col-span-2 flex flex-col h-[800px]">
                             <h2 class="text-2xl font-bold mb-4">เลือกการสำรวจ</h2>
                             <p class="text-sm text-slate-300 mb-6">เลือกหน่วยและประเภทการสำรวจ</p>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-1 overflow-y-auto smooth-scroll">
-                                <!-- Unit Selection -->
-                                <div>
+                                <!-- Unit Selection with Filter -->
+                                <div class="flex flex-col">
                                     <h3 class="font-bold text-sm mb-3">หน่วยที่ส่งไปสำรวจ</h3>
-                                    <div class="space-y-2 max-h-60 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">
-                                        ${state.units.map((u, idx) => {
-                                            const cbId = `explore-cb-${idx}`;
-                                            return `<div class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-all" id="unit-select-${idx}" onclick="toggleUnitSelect(${idx}, '${cbId}')">
-                                                <input type="checkbox" id="${cbId}" class="explore-unit-checkbox" value="${u.uid}" style="cursor: pointer;">
-                                                <span class="text-sm flex-1">${getUnitDisplayName(u)}</span>
-                                            </div>`;
-                                        }).join('')}
+                                    
+                                    <!-- Search Input -->
+                                    <div class="mb-3">
+                                        <input type="text" id="exploration-search-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500" placeholder="ค้นหา: ชื่อ, เลเวล, อาชีพ...">
+                                    </div>
+                                    
+                                    <!-- Profession Filter Tabs -->
+                                    <div class="mb-3">
+                                        <p class="text-xs text-slate-400 mb-2">กรอง:</p>
+                                        <div class="flex flex-wrap gap-2 mb-2">
+                                            <button onclick="filterExplorationUnits('all')" data-filter="all" class="exploration-profession-btn px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white text-xs rounded-lg font-semibold transition-all">ทั้งหมด</button>
+                                            ${getUniqueProfessions().map(prof => {
+                                                const profName = getProfessionFromTypeId(prof);
+                                                return `<button onclick="filterExplorationUnits('${prof}')" data-filter="${prof}" class="exploration-profession-btn px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-semibold transition-all">${profName}</button>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Unit List -->
+                                    <div id="exploration-unit-list" class="space-y-2 flex-1 overflow-y-auto bg-slate-900 p-3 rounded-lg smooth-scroll">
                                     </div>
                                 </div>
                                 
@@ -3164,6 +3237,84 @@
             document.body.insertAdjacentHTML('beforeend', modalHTML);
             lucide.createIcons();
             
+            // Store current filter and search state
+            let explorationFilter = 'all';
+            let explorationSearch = '';
+            let checkedUnitUids = new Set(); // Track checked units across filter changes
+            
+            // Function to update the unit list based on filters
+            window.updateExplorationUnitList = function() {
+                const filtered = filterAndSortExplorationUnits(state.units, explorationSearch, explorationFilter === 'all' ? '' : explorationFilter);
+                const listContainer = document.getElementById('exploration-unit-list');
+                
+                if (!listContainer) return;
+                
+                if (filtered.length === 0) {
+                    listContainer.innerHTML = '<div class="text-center text-slate-500 py-6">ไม่พบหน่วยที่ตรงเงื่อนไข</div>';
+                    return;
+                }
+                
+                listContainer.innerHTML = filtered.map((u) => {
+                    // Find the actual index in state.units
+                    const idx = state.units.findIndex(unit => unit.uid === u.uid);
+                    if (idx === -1) return '';
+                    
+                    const cbId = `explore-cb-${idx}`;
+                    const profession = getProfessionFromTypeId(u.typeId);
+                    const isChecked = checkedUnitUids.has(u.uid);
+                    
+                    return `<div class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer transition-all exploration-unit-item ${isChecked ? 'bg-emerald-900/50 border-l-4 border-emerald-500' : ''}" id="unit-select-${idx}" onclick="toggleUnitSelect(${idx}, '${cbId}')" data-search-text="${getUnitDisplayName(u).toLowerCase()} ${profession.toLowerCase()} ${u.level}" data-unit-type="${u.typeId}">
+                        <input type="checkbox" id="${cbId}" class="explore-unit-checkbox" value="${u.uid}" style="cursor: pointer;" ${isChecked ? 'checked' : ''}>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold truncate">${getUnitDisplayName(u)}</div>
+                            <div class="text-xs text-slate-400">${profession} • ATK: ${u.atk} • Lv.${u.level}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+                
+                // Re-attach checkboxes listeners
+                document.querySelectorAll('.explore-unit-checkbox').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        if (this.checked) {
+                            checkedUnitUids.add(this.value);
+                        } else {
+                            checkedUnitUids.delete(this.value);
+                        }
+                        updateExplorationInfo();
+                    });
+                });
+            };
+            
+            // Function to filter by profession
+            window.filterExplorationUnits = function(profession) {
+                explorationFilter = profession;
+                
+                // Update button styles
+                document.querySelectorAll('.exploration-profession-btn').forEach(btn => {
+                    if (btn.getAttribute('data-filter') === profession) {
+                        btn.classList.remove('bg-slate-700', 'hover:bg-slate-600');
+                        btn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+                    } else {
+                        btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                        btn.classList.add('bg-slate-700', 'hover:bg-slate-600');
+                    }
+                });
+                
+                updateExplorationUnitList();
+            };
+            
+            // Search input handler
+            const searchInput = document.getElementById('exploration-search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    explorationSearch = this.value;
+                    updateExplorationUnitList();
+                });
+            }
+            
+            // Update unit list to show sorted units on load
+            updateExplorationUnitList();
+            
             // Add event listeners
             document.querySelectorAll('.exploration-type').forEach(label => {
                 label.addEventListener('click', function() {
@@ -3175,7 +3326,14 @@
             
             // Add event listeners for unit checkboxes
             document.querySelectorAll('.explore-unit-checkbox').forEach(cb => {
-                cb.addEventListener('change', updateExplorationInfo);
+                cb.addEventListener('change', function() {
+                    if (this.checked) {
+                        checkedUnitUids.add(this.value);
+                    } else {
+                        checkedUnitUids.delete(this.value);
+                    }
+                    updateExplorationInfo();
+                });
             });
             
             // Initial update
