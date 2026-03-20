@@ -477,6 +477,10 @@
                             <i data-lucide="backpack"></i> กระเป๋า (<span id="inventory-count">0</span>)
                         </button>
 
+                        <button onclick="openConsumablesModal()" class="w-full bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="coffee"></i> ของบริโภค (<span id="consumable-count">0</span>)
+                        </button>
+
                         <button onclick="openHousingModal()" class="w-full bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
                             <i data-lucide="home"></i> ที่อยู่ (<span id="housing-count">0</span>)
                         </button>
@@ -1800,10 +1804,22 @@
 
         // --- RPG System ---
         function updateStatsUI() {
-            // Update inventory count
+            // Update inventory count (non-real-estate, non-food)
+            const nonRealEstateInventoryCount = state.inventory.filter(inv => {
+                const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+                return item && item.type !== 'Real Estate' && item.type !== 'Food';
+            }).length;
             const invCountEl = document.getElementById('inventory-count');
-            if (invCountEl) invCountEl.innerText = state.inventory.length;
+            if (invCountEl) invCountEl.innerText = nonRealEstateInventoryCount;
             
+            // Update consumable count (เฉพาะ Food)
+            const consumableCount = state.inventory.filter(inv => {
+                const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+                return item && item.type === 'Food';
+            }).length;
+            const consumableCountEl = document.getElementById('consumable-count');
+            if (consumableCountEl) consumableCountEl.innerText = consumableCount;
+
             // Base stats
             let baseAtk = 10;
             let baseDef = 5;
@@ -1826,10 +1842,10 @@
             state.stats.atk = baseAtk;
             state.stats.def = baseDef;
 
-            // Update equipment count
+            // Update equipment count (ฟิลเตอร์เฉพาะที่เป็นไอเท็มสวมใส่ / ไม่มี Food)
             const equipCount = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.effect;
+                return item && item.effect && item.type !== 'Food';
             }).length;
             const equipCountEl = document.getElementById('equipment-count');
             if (equipCountEl) equipCountEl.innerText = equipCount;
@@ -2390,10 +2406,10 @@
         }
         
         function openInventoryModal() {
-            // Sort inventory by newest first, exclude Real Estate items
+            // Sort inventory by newest first, exclude Real Estate and Food items (Food in consumables panel)
             const nonRealEstateItems = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.type !== 'Real Estate';
+                return item && item.type !== 'Real Estate' && item.type !== 'Food';
             });
             const sortedInventory = [...nonRealEstateItems].reverse();
             
@@ -2508,6 +2524,59 @@
                 </div>
             </div>`;
             
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        function openConsumablesModal() {
+            const consumableItems = state.inventory.filter(inv => {
+                const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+                return item && item.type === 'Food';
+            }).reverse();
+
+            let modalHTML = `<div id="consumables-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+                <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-emerald-500 max-h-[90vh] flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">🍱 ของบริโภค</h2>
+                        <p class="text-sm text-emerald-300">จำนวน: ${consumableItems.length}</p>
+                    </div>
+                    <div class="flex-1 overflow-y-auto space-y-2 pr-2 smooth-scroll mb-4">
+            `;
+
+            if (consumableItems.length === 0) {
+                modalHTML += `<p class="text-center text-slate-500 py-6">ไม่มีของบริโภคในกระเป๋า</p>`;
+            } else {
+                consumableItems.forEach(inv => {
+                    const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+                    if (!item) return;
+                    const sellPrice = calculateSellPrice(inv.itemId, item.basePrice);
+                    const priceColor = sellPrice > item.basePrice ? 'text-emerald-400' : sellPrice >= item.basePrice * 0.75 ? 'text-yellow-400' : 'text-orange-400';
+                    const priceLabel = sellPrice > item.basePrice ? `(+${sellPrice - item.basePrice})` : sellPrice >= item.basePrice * 0.75 ? '' : `(-${item.basePrice - sellPrice})`;
+
+                    modalHTML += `
+                        <div class="bg-slate-900 border border-slate-800 p-3 rounded-lg flex justify-between items-center">
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-emerald-300">${item.name}</p>
+                                <p class="text-[10px] text-slate-500">ประเภท: ${item.type}</p>
+                                ${item.effect ? `<p class="text-[10px] text-emerald-400">${Object.entries(item.effect).map(([k,v]) => `${k} +${v}`).join(' | ')}</p>` : ''}
+                            </div>
+                            <div class="text-right ml-4">
+                                <p class="${priceColor} font-bold">$${sellPrice} <span class="text-[10px]">${priceLabel}</span></p>
+                                <div class="mt-1 space-x-1">
+                                    <button onclick="useItem('${inv.uid}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">ใช้</button>
+                                    <button onclick="sellItem('${inv.uid}')" class="bg-orange-600 hover:bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold">ขาย</button>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            modalHTML += `</div>
+                    <div class="flex gap-3 pt-4 border-t border-slate-800">
+                        <button onclick="document.getElementById('consumables-modal').remove()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-xl font-bold">ปิด</button>
+                    </div>
+                </div>
+            </div>`;
+
             document.body.insertAdjacentHTML('beforeend', modalHTML);
         }
 
@@ -3405,7 +3474,7 @@
                                         const typeColors = { near: 'text-cyan-400', around: 'text-yellow-400', far: 'text-orange-400' };
                                         const typeNames = { near: 'ใกล้', around: 'รอบๆ', far: 'ไกล' };
                                         return `
-                                        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 hover:border-yellow-500/30 transition-all">
+                                        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 hover:border-yellow-500/30 transition-all cursor-pointer" onclick="openExplorationHistoryDetails(${log.id})">
                                             <div class="flex justify-between text-slate-500 mb-1.5 font-mono text-[10px]">
                                                 <span>${new Date(log.timestamp).toLocaleString(undefined, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
                                                 <span class="${typeColors[log.type] || 'text-white'} font-bold">${typeNames[log.type] || log.type}</span>
@@ -3415,8 +3484,11 @@
                                                 <span class="text-emerald-400 font-bold">+$${formatNumber(log.rewards.money)}</span>
                                             </div>
                                             ${log.rewards.itemCount > 0 ? `<div class="text-purple-400 mb-1 flex items-center gap-1"><i data-lucide="gift" class="w-3 h-3"></i> พบไอเทม ${log.rewards.itemCount} ชิ้น</div>` : ''}
-                                            <div class="text-slate-400 pl-2 border-l-2 border-slate-700 mt-2 space-y-1 text-[10px] max-h-20 overflow-y-auto smooth-scroll">
+                                            <div class="text-slate-400 pl-2 border-l-2 border-slate-700 mt-2 space-y-1 text-[10px] max-h-20 overflow-y-auto smooth-scroll"> 
                                                 ${log.events.map(e => `<div class="truncate" title="${e}">${e}</div>`).join('')}
+                                            </div>
+                                            <div class="mt-2 text-right">
+                                                <button class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white">ดูรายละเอียดเต็ม</button>
                                             </div>
                                         </div>
                                         `;
@@ -3774,6 +3846,35 @@
             updateExplorationUI();
         }
 
+        function openExplorationHistoryDetails(logId) {
+            const logEntry = state.explorationLogs?.find(log => log.id === logId);
+            if (!logEntry) return;
+
+            const typeNames = { near: 'สำรวจใกล้', around: 'สำรวจรอบๆ', far: 'สำรวจไกล' };
+            const timeStamp = new Date(logEntry.timestamp).toLocaleString(undefined, { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
+            let detailsHTML = `<div id="exploration-history-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[95] flex items-center justify-center p-4">
+                <div class="glass-card p-6 rounded-3xl max-w-2xl w-full border-t-4 border-blue-500">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-2xl font-bold">📜 ประวัติสำรวจ (ย้อนหลัง)</h2>
+                            <p class="text-sm text-slate-400">${timeStamp} • ${typeNames[logEntry.type] || logEntry.type}</p>
+                        </div>
+                        <button onclick="document.getElementById('exploration-history-modal').remove()" class="text-xs rounded-md bg-slate-800 px-3 py-1">✖</button>
+                    </div>
+                    <div class="bg-emerald-900/20 border border-emerald-500 rounded-lg p-3 mb-3 text-sm">
+                        <p>หน่วยส่ง: ${logEntry.unitsSentCount}, กลับ: ${logEntry.unitsReturnedCount}, ตาย: ${logEntry.unitsDiedCount}, บาดเจ็บ: ${logEntry.unitsInjuredCount}</p>
+                        <p class="mt-1">รางวัลเงิน: <strong>+$${formatNumber(logEntry.rewards.money)}</strong> • ไอเทม: ${logEntry.rewards.itemCount}</p>
+                    </div>
+                    <div class="max-h-72 overflow-y-auto bg-slate-900 p-3 rounded-lg border border-slate-800 text-sm space-y-1">
+                        ${logEntry.events.map(event => `<p>${event}</p>`).join('')}
+                    </div>
+                </div>
+            </div>`;
+
+            document.body.insertAdjacentHTML('beforeend', detailsHTML);
+        }
+
         function completeExploration(units, type) {
             let rewards = { money: 0, items: [] };
             let eventLog = [];
@@ -3783,13 +3884,7 @@
             const scalingFactor = 1 + (numUnits - 1) * 0.1;
             const itemChance = { near: 0.7, around: 0.5, far: 0.28 }[type] || 0.28;
             
-            const baseLoot = {
-                near: () => Math.floor(Math.random() * 300) + 150,
-                around: () => Math.floor(Math.random() * 900) + 500,
-                far: () => Math.floor(Math.random() * 1700) + 1200
-            };
-            rewards.money = Math.floor(baseLoot[type]() * scalingFactor);
-            
+            // No hidden base loot: reward comes only from item/money events to avoid history mismatch.
             // Apply MP loss from combat encounters
             const monsterDifficulty = { near: 0, around: 1, far: 2 }[type] || 0;
             applyMPLossFromCombat(units, monsterDifficulty);
@@ -3822,7 +3917,7 @@
                         eventLog.push(`🧐 ${getUnitDisplayName(unit)} ไม่พบสิ่งของที่เหมาะสมในพื้นที่`);
                     }
                 } else if (rand < itemChance + 0.18) {
-                    const bonus = Math.floor(Math.random() * 200) + 100;
+                    const bonus = Math.floor((Math.random() * 200 + 100) * scalingFactor);
                     rewards.money += bonus;
                     eventLog.push(`💰 ${getUnitDisplayName(unit)} พบเงิน $${bonus}`);
                 } else if (rand < itemChance + 0.4) {
