@@ -863,7 +863,7 @@
 
             // Meme / Cursed Items
             { id: 'poop', name: 'Fresh Poop', type: 'Other', basePrice: 10, icon: 'biohazard', cursed: true, maxStock: 100, restockRate: 1.0 },
-            { id: 'glowing_mushroom', name: 'Glowing Mushroom', type: 'Material', basePrice: 120, icon: 'mushroom', effect: { hp: 2 }, explorationOnly: true, maxStock: 80, restockRate: 0.5 },
+            { id: 'glowing_mushroom', name: 'Glowing Mushroom', type: ['Material','Food'], basePrice: 120, icon: 'mushroom', effect: { hp: 2 }, explorationOnly: true, maxStock: 80, restockRate: 0.5 },
 
             // --- CRAFTING MATERIALS (NEW) ---
             { id: 'mat_iron', name: 'Iron Ore', type: 'Material', basePrice: 200, icon: 'box', maxStock: 50, restockRate: 0.8 },
@@ -911,6 +911,25 @@
             { id: 'w_excalibur', materials: [{id:'mithril', n:5}, {id:'mat_holy', n:5}, {id:'diamond', n:1}], fee: 50000, secret: true },
             { id: 'u_summon_dragon', materials: [{id:'dragon_scale', n:5}, {id:'mat_soul', n:20}], fee: 100000, secret: true }
         ];
+
+        // Helper for items with multiple types (ex: Glowing Mushroom)
+        function getItemTypes(item) {
+            if (!item) return [];
+            if (Array.isArray(item.type)) return item.type;
+            if (typeof item.type === 'string') return [item.type];
+            if (Array.isArray(item.types)) return item.types;
+            if (typeof item.types === 'string') return [item.types];
+            return [];
+        }
+
+        function itemHasType(item, type) {
+            return getItemTypes(item).includes(type);
+        }
+
+        function getItemTypeLabel(item) {
+            const types = getItemTypes(item);
+            return types.length > 0 ? types.join(', ') : 'Unknown';
+        }
 
         const RANK_DATA = {
             'F': { next: 'E', levelReq: 25 },
@@ -1828,7 +1847,7 @@
             // Update inventory count (non-real-estate, non-food)
             const nonRealEstateInventoryCount = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.type !== 'Real Estate' && item.type !== 'Food';
+                return item && !itemHasType(item, 'Real Estate') && !itemHasType(item, 'Food');
             }).length;
             const invCountEl = document.getElementById('inventory-count');
             if (invCountEl) invCountEl.innerText = nonRealEstateInventoryCount;
@@ -1836,7 +1855,7 @@
             // Update consumable count (เฉพาะ Food)
             const consumableCount = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.type === 'Food';
+                return item && itemHasType(item, 'Food');
             }).length;
             const consumableCountEl = document.getElementById('consumable-count');
             if (consumableCountEl) consumableCountEl.innerText = consumableCount;
@@ -1869,7 +1888,7 @@
             // Update equipment count (ฟิลเตอร์เฉพาะที่เป็นไอเท็มสวมใส่ / ไม่มี Food)
             const equipCount = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.effect && item.type !== 'Food';
+                return item && item.effect && !itemHasType(item, 'Food');
             }).length;
             const equipCountEl = document.getElementById('equipment-count');
             if (equipCountEl) equipCountEl.innerText = equipCount;
@@ -1877,7 +1896,7 @@
             // Update housing count
             const housingCount = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.type === 'Real Estate';
+                return item && itemHasType(item, 'Real Estate');
             }).length;
             const housingCountEl = document.getElementById('housing-count');
             if (housingCountEl) housingCountEl.innerText = housingCount;
@@ -2248,28 +2267,28 @@
             let sellMultiplier = 0.75; // Default 75%
             
             // Item type-based pricing
-            if (item.type === 'Food' || item.type === 'Meme') {
+            if (itemHasType(item, 'Food') || itemHasType(item, 'Meme')) {
                 // Common food: 50-60% resale
                 sellMultiplier = 0.55;
-            } else if (item.type === 'Clothing') {
+            } else if (itemHasType(item, 'Clothing')) {
                 // Clothing: 60% resale
                 sellMultiplier = 0.60;
-            } else if (item.type === 'Material') {
+            } else if (itemHasType(item, 'Material')) {
                 // Materials: 80-90% resale (valuable for crafting)
                 sellMultiplier = 0.85;
-            } else if (item.type === 'Electronics' || item.type === 'Vehicle') {
+            } else if (itemHasType(item, 'Electronics') || itemHasType(item, 'Vehicle')) {
                 // Tech & Vehicles: 70-80% resale (depreciation)
                 sellMultiplier = 0.75;
-            } else if (item.type === 'Luxury' || item.type === 'Real Estate') {
+            } else if (itemHasType(item, 'Luxury') || itemHasType(item, 'Real Estate')) {
                 // Luxury items: 85-95% resale (holds value)
                 sellMultiplier = 0.90;
-            } else if (item.type === 'Weapon') {
+            } else if (itemHasType(item, 'Weapon')) {
                 // Weapons: 60-75% resale (wear and tear)
                 sellMultiplier = 0.70;
-            } else if (item.type === 'Equipment') {
+            } else if (itemHasType(item, 'Equipment')) {
                 // Equipment: 65-80% resale
                 sellMultiplier = 0.72;
-            } else if (item.type === 'Unit') {
+            } else if (itemHasType(item, 'Unit')) {
                 // Units: 95-110% (collectible, rare)
                 sellMultiplier = 1.05;
             }
@@ -2299,7 +2318,7 @@
             state.inventory.forEach(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
                 // Only show items with effect and exclude Food items
-                if (item && item.effect && item.type !== 'Food') {
+                if (item && item.effect && !itemHasType(item, 'Food')) {
                     affectingItems.push({ itemDef: item, inv: inv });
                 }
             });
@@ -2354,7 +2373,7 @@
             const housingItems = [];
             state.inventory.forEach(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                if (item && item.type === 'Real Estate') {
+                if (item && itemHasType(item, 'Real Estate')) {
                     housingItems.push({ itemDef: item, inv: inv });
                 }
             });
@@ -2433,7 +2452,7 @@
             // Sort inventory by newest first, exclude Real Estate and Food items (Food in consumables panel)
             const nonRealEstateItems = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.type !== 'Real Estate' && item.type !== 'Food';
+                return item && !itemHasType(item, 'Real Estate') && !itemHasType(item, 'Food');
             });
             const sortedInventory = [...nonRealEstateItems].reverse();
             
@@ -2441,7 +2460,11 @@
             const inventoryCategories = new Set();
             sortedInventory.forEach(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                if (item) inventoryCategories.add(item.type);
+                if (item) {
+                    getItemTypes(item).forEach(t => {
+                        if (t !== 'Real Estate') inventoryCategories.add(t);
+                    });
+                }
             });
             
             // Create category list with "All" first, then sorted categories
@@ -2505,7 +2528,7 @@
                         }
                         
                         // Check if it's a consumable food item
-                        const isFood = item.type === 'Food' && item.effect;
+                        const isFood = itemHasType(item, 'Food') && item.effect;
                         let useButtonHTML = '';
                         let effectDisplayText = '';
                         if (isFood) {
@@ -2522,10 +2545,10 @@
                         const sellButtonHTML = `<button onclick="sellItem('${inv.uid}')" class="mt-1 bg-orange-600 hover:bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold transition-all">ขาย</button>`;
                         
                         modalHTML += `
-                        <div id="item-${inv.uid}" class="${itemClass} bg-slate-900 border border-slate-800 p-3 rounded-lg flex justify-between items-center hover:border-purple-500 transition-all" data-category="${item.type}">
+                        <div id="item-${inv.uid}" class="${itemClass} bg-slate-900 border border-slate-800 p-3 rounded-lg flex justify-between items-center hover:border-purple-500 transition-all" data-category="${getItemTypeLabel(item)}">
                             <div class="flex-1">
                                 <p class="font-bold text-sm text-purple-300">${item.name}${effectDisplayText}</p>
-                                <p class="text-[10px] text-slate-500">ประเภท: ${item.type}</p>
+                                <p class="text-[10px] text-slate-500">ประเภท: ${getItemTypeLabel(item)}</p>
                                 ${effectText}
                             </div>
                             <div class="text-right ml-4">
@@ -2554,7 +2577,7 @@
         function openConsumablesModal() {
             const consumableItems = state.inventory.filter(inv => {
                 const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
-                return item && item.type === 'Food';
+                return item && itemHasType(item, 'Food');
             }).reverse();
 
             let modalHTML = `<div id="consumables-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
@@ -2580,7 +2603,7 @@
                         <div class="bg-slate-900 border border-slate-800 p-3 rounded-lg flex justify-between items-center">
                             <div class="flex-1">
                                 <p class="font-bold text-sm text-emerald-300">${item.name}</p>
-                                <p class="text-[10px] text-slate-500">ประเภท: ${item.type}</p>
+                                <p class="text-[10px] text-slate-500">ประเภท: ${getItemTypeLabel(item)}</p>
                                 ${item.effect ? `<p class="text-[10px] text-emerald-400">${Object.entries(item.effect).map(([k,v]) => `${k} +${v}`).join(' | ')}</p>` : ''}
                             </div>
                             <div class="text-right ml-4">
@@ -2624,7 +2647,7 @@
                 const itemText = item.textContent.toLowerCase();
                 
                 // Show if category matches and search text is found
-                const categoryMatch = selectedCategory === '' || itemCategory === selectedCategory;
+                const categoryMatch = selectedCategory === '' || (itemCategory && itemCategory.split(',').map(s => s.trim()).includes(selectedCategory));
                 const searchMatch = itemText.includes(searchValue);
                 
                 item.style.display = (categoryMatch && searchMatch) ? 'flex' : 'none';
@@ -2642,7 +2665,7 @@
             items.forEach(item => {
                 const text = item.textContent.toLowerCase();
                 const itemCategory = item.getAttribute('data-category');
-                const categoryMatch = selectedCategory === '' || itemCategory === selectedCategory;
+                const categoryMatch = selectedCategory === '' || (itemCategory && itemCategory.split(',').map(s => s.trim()).includes(selectedCategory));
                 const searchMatch = text.includes(searchValue);
                 
                 item.style.display = (categoryMatch && searchMatch) ? 'flex' : 'none';
@@ -3042,10 +3065,10 @@
         function getExplorationLootCandidates(type) {
             const noDropTypes = ['Real Estate'];
             let candidates = SHOP_ITEMS.filter(item => {
-                if (item.craftOnly || item.type === 'Unit') return false;
-                if (noDropTypes.includes(item.type)) return false;
+                if (item.craftOnly || itemHasType(item, 'Unit')) return false;
+                if (noDropTypes.some(t => itemHasType(item, t))) return false;
                 // Always no real estate
-                if (item.type === 'Real Estate') return false;
+                if (itemHasType(item, 'Real Estate')) return false;
                 // Dungeon-only items are not available in near
                 if (item.dungeonOnly && type === 'near') return false;
                 // Exploration-only items can drop only in exploration (here only near as configured)
@@ -3906,10 +3929,12 @@
                 if (exploration.remainingTime <= 0) {
                     clearInterval(exploration.timerInterval);
                     exploration.status = 'ready';
+                    exploration.remainingTime = 0;
                     saveProfile(); // Save when ready
                     updateExplorationUI();
                     showToast('กลุ่มสำรวจกลับมาแล้ว! เข้าไปดูผลได้ทันที', 'success', 3000);
                 } else {
+                    saveProfile(); // Save timer progress each tick to survive reload
                     updateExplorationUI();
                 }
             }, 1000);
@@ -4379,13 +4404,16 @@
             
             exploration.timerInterval = setInterval(() => {
                 exploration.remainingTime -= 1;
-                updateDungeonExplorationUI();
-                
                 if (exploration.remainingTime <= 0) {
                     clearInterval(exploration.timerInterval);
                     exploration.status = 'ready';
+                    exploration.remainingTime = 0;
+                    saveProfile();
                     updateDungeonExplorationUI();
                     showToast('สำรวจดันเจี้ยนเสร็จแล้ว!', 'success', 3000);
+                } else {
+                    saveProfile();
+                    updateDungeonExplorationUI();
                 }
             }, 1000);
         }
@@ -4813,8 +4841,8 @@
                 if (filter !== 'all') {
                     if (filter === 'Unit') {
                         // For units, apply sub-filter
-                        if (item.type !== 'Unit') return '';
-                        
+                        if (!itemHasType(item, 'Unit')) return '';
+
                         if (unitSubFilter !== 'all') {
                             // Get the unit type from item name or baseStats
                             let unitType = 'Other';
@@ -4831,7 +4859,7 @@
                             
                             if (unitType !== unitSubFilter) return '';
                         }
-                    } else if (item.type !== filter) {
+                    } else if (!itemHasType(item, filter)) {
                         return '';
                     }
                 }
@@ -4859,7 +4887,7 @@
                     <div class="flex justify-between items-start">
                         <div class="p-3 bg-slate-800 rounded-lg text-purple-400 group-hover:scale-110 transition-transform"><i data-lucide="${item.icon}"></i></div>
                         <div class="text-right">
-                             <span class="text-[10px] px-2 py-1 rounded ${typeBadge}">${item.type}</span>
+                             <span class="text-[10px] px-2 py-1 rounded ${typeBadge}">${getItemTypeLabel(item)}</span>
                              <div class="text-[10px] text-slate-500 mt-1">Stock: ${stock}/${item.maxStock || '∞'}</div>
                         </div>
                     </div>
@@ -4893,7 +4921,7 @@
                     
                     // Generate Use Button if consumable
                     let actionBtn = '';
-                    if(itemDef.type === 'Food') {
+                    if(itemHasType(itemDef, 'Food')) {
                         if(itemDef.mpPotionQuality) {
                             // MP Potion - use on unit
                             actionBtn = `<button onclick="useMPPotionOnUnit('${inv.uid}')" class="px-2 py-1 bg-blue-900/30 text-blue-400 text-[9px] rounded hover:bg-blue-600 hover:text-white">ใช้</button>`;
@@ -5313,7 +5341,7 @@
                         <div class="p-3 bg-orange-500/10 rounded-lg text-orange-400"><i data-lucide="${item.icon}"></i></div>
                         <div>
                             <h4 class="font-bold text-sm text-slate-200">${item.name}</h4>
-                            <p class="text-[10px] text-slate-500">${item.type}</p>
+                            <p class="text-[10px] text-slate-500">${getItemTypeLabel(item)}</p>
                         </div>
                     </div>
                     <div class="bg-slate-950 p-2 rounded-lg space-y-1">
