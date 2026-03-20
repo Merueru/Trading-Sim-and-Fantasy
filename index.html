@@ -374,7 +374,8 @@
                                 <button onclick="filterShopByType('Electronics')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Electronics">อุปกรณ์</button>
                                 <button onclick="filterShopByType('Vehicle')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Vehicle">ยานพาหนะ</button>
                                 <button onclick="filterShopByType('Unit')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Unit">กองกำลัง</button>
-                                <button onclick="filterShopByType('Fantasy')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Fantasy">แฟนตาซี</button>
+                                <button onclick="filterShopByType('Weapon')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Weapon">อาวุธ</button>
+                                <button onclick="filterShopByType('Equipment')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Equipment">อุปกรณ์</button>
                                 <button onclick="filterShopByType('Material')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Material">วัตถุดิบ</button>
                                 <button onclick="filterShopByType('Luxury')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Luxury">แพง</button>
                                 <button onclick="filterShopByType('Real Estate')" class="shop-tab-btn px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-slate-800 hover:bg-slate-700 text-slate-300" data-type="Real Estate">อสังหา</button>
@@ -562,6 +563,7 @@
                                         <div class="space-y-1 text-sm">
                                             <p>ระดับความยากลำบาก: <span id="dungeon-level" class="font-bold text-orange-400">0</span></p>
                                             <p>จำนวนชั้น: <span id="dungeon-depth" class="font-bold text-cyan-400">1</span> ชั้น</p>
+                                            <p>เวลาที่เหลือ: <span id="dungeon-remaining-time" class="font-bold text-emerald-400">-</span></p>
                                         </div>
                                     </div>
                                     <div class="text-right space-y-2">
@@ -596,6 +598,11 @@
                                         <i data-lucide="dagger" class="inline w-4 h-4 mr-2"></i> ลงสำรวจ
                                     </button>
                                 </div>
+                            </div>
+
+                            <div class="glass-card p-4 rounded-xl border-l-4 border-blue-500 h-[250px] overflow-y-auto smooth-scroll">
+                                <h3 class="text-lg font-bold mb-3">บันทึกดันเจี้ยนล่าสุด</h3>
+                                <div id="dungeon-log-list" class="text-xs space-y-2">ยังไม่มีบันทึก</div>
                             </div>
 
                             <!-- Stats -->
@@ -836,13 +843,27 @@
             { id: 'adventurer_ss', name: 'นักผจญภัย (SS)', type: 'Unit', basePrice: 1000000, icon: 'user-plus', isUnit: true, rank: 'SS', levelRange: [100, 150], baseStats: { atk: 100, def: 90, upkeep: 1800 }, maxStock: 1, restockRate: 0.02 },
             { id: 'adventurer_sss', name: 'นักผจญภัย (SSS)', type: 'Unit', basePrice: 5000000, icon: 'user-plus', isUnit: true, rank: 'SSS', levelRange: [150, 999], baseStats: { atk: 150, def: 120, upkeep: 3600 }, maxStock: 1, restockRate: 0.01 },
 
-            // Fantasy Items
-            { id: 'sword', name: 'ดาบในตำนาน', type: 'Fantasy', basePrice: 10000, icon: 'sword', effect: { atk: 50 }, maxStock: 3, restockRate: 0.1 },
-            { id: 'mithril', name: 'แร่มิธริล', type: 'Fantasy', basePrice: 25000, icon: 'hexagon', maxStock: 5, restockRate: 0.2 },
-            { id: 'dragon_scale', name: 'เกล็ดมังกร', type: 'Fantasy', basePrice: 150000, icon: 'shield', effect: { def: 100 }, maxStock: 1, restockRate: 0.05 },
+            // Weapon & Equipment Items (แฟนตาซีถูกย้ายออก)
+            { id: 'sword', name: 'ดาบในตำนาน (ปลอม)', type: 'Weapon', basePrice: 1200, icon: 'sword', effect: { atk: 8 }, maxStock: 5, restockRate: 0.2 },
+            { id: 'wood_sword', name: 'ดาบไม้', type: 'Weapon', basePrice: 150, icon: 'sword', effect: { atk: 3 }, maxStock: 40, restockRate: 0.6 },
+            { id: 'rusty_dagger', name: 'มีดสนิม', type: 'Weapon', basePrice: 220, icon: 'dagger', effect: { atk: 5 }, maxStock: 30, restockRate: 0.5 },
+            { id: 'cracked_axe', name: 'ขวานแตก', type: 'Weapon', basePrice: 300, icon: 'axe', effect: { atk: 7 }, maxStock: 25, restockRate: 0.45 },
+            { id: 'old_spear', name: 'หอกเก่า', type: 'Weapon', basePrice: 350, icon: 'trident', effect: { atk: 8 }, maxStock: 20, restockRate: 0.4 },
+            { id: 'training_staff', name: 'ไม้เท้าฝึกฝน', type: 'Weapon', basePrice: 400, icon: 'wand', effect: { atk: 10 }, maxStock: 20, restockRate: 0.35 },
+
+            { id: 'leather_helm', name: 'หมวกหนัง', type: 'Equipment', basePrice: 220, icon: 'shield', effect: { def: 2 }, maxStock: 40, restockRate: 0.5 },
+            { id: 'tattered_cloak', name: 'ผ้าคลุมเก่า', type: 'Equipment', basePrice: 190, icon: 'feather', effect: { def: 1, energy: 10 }, maxStock: 50, restockRate: 0.6 },
+            { id: 'brass_gauntlets', name: 'ถุงมือทองเหลือง', type: 'Equipment', basePrice: 280, icon: 'gloves', effect: { def: 2 }, maxStock: 35, restockRate: 0.5 },
+            { id: 'iron_greaves', name: 'เกราะขายาวเหล็ก', type: 'Equipment', basePrice: 450, icon: 'boot', effect: { def: 3, hp: 20 }, maxStock: 30, restockRate: 0.35 },
+            { id: 'studded_armor', name: 'ชุดหนังปักหมุด', type: 'Equipment', basePrice: 550, icon: 'shield', effect: { def: 5 }, maxStock: 25, restockRate: 0.3 },
+
+            // Original material loot (still available via shop / dungeon drop)
+            { id: 'mithril', name: 'แร่มิธริล', type: 'Material', basePrice: 25000, icon: 'hexagon', maxStock: 5, restockRate: 0.2 },
+            { id: 'dragon_scale', name: 'เกล็ดมังกร', type: 'Material', basePrice: 150000, icon: 'shield', effect: { def: 100 }, maxStock: 1, restockRate: 0.05 },
 
             // Meme / Cursed Items
             { id: 'poop', name: 'Fresh Poop', type: 'Other', basePrice: 10, icon: 'biohazard', cursed: true, maxStock: 100, restockRate: 1.0 },
+            { id: 'glowing_mushroom', name: 'Glowing Mushroom', type: 'Material', basePrice: 120, icon: 'mushroom', effect: { hp: 2 }, explorationOnly: true, maxStock: 80, restockRate: 0.5 },
 
             // --- CRAFTING MATERIALS (NEW) ---
             { id: 'mat_iron', name: 'Iron Ore', type: 'Material', basePrice: 200, icon: 'box', maxStock: 50, restockRate: 0.8 },
@@ -1022,7 +1043,7 @@
             units: [], // { uid, typeId, level, atk, def, name, hp, maxHp }
             shopStock: {}, // { itemId: number }
             shopPrices: {},
-            shopFilter: 'all', // 'all', 'Food', 'Clothing', 'Electronics', 'Vehicle', 'Unit', 'Fantasy', 'Material', 'Luxury', 'Real Estate', 'Other'
+            shopFilter: 'all', // 'all', 'Food', 'Clothing', 'Electronics', 'Vehicle', 'Unit', 'Weapon', 'Equipment', 'Material', 'Luxury', 'Real Estate', 'Other'
             shopSearchTerm: '',
             craftSearchTerm: '',
             accountSearchTerm: '', // Search term for accounts list
@@ -1833,8 +1854,11 @@
                 }
             });
 
-            // Add unit stats (Summoned units add to power)
+            // Normalize EXP fields and add unit stats (Summoned units add to power)
             state.units.forEach(u => {
+                if (typeof u.exp !== 'number') u.exp = 0;
+                if (typeof u.expToNext !== 'number') u.expToNext = getExpToNextLevel(u.level || 1);
+
                 baseAtk += u.atk;
                 baseDef += u.def;
             });
@@ -1957,28 +1981,22 @@
                                 </div>
                                 <button onclick="toggleDefender(${u.uid})" class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${u.isDefender ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}" title="ตั้งป้องกันบ้าน">${u.isDefender ? 'ตั้งรับ' : 'ว่าง'}</button>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <div class="flex-1">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="text-[9px] text-rose-400">HP</span>
-                                        <span class="text-[9px] text-slate-400 cursor-help" title="${u.hp || u.maxHp}/${u.maxHp}">${hpDisplay}</span>
+                            <div class="space-y-1">
+                                <div class="relative w-full bg-slate-950 rounded-full h-2" title="HP ${u.hp || u.maxHp}/${u.maxHp}">
+                                    <div class="${hpColor} h-2 rounded-full transition-all" style="width: ${hpPercent}%"></div>
+                                    <span class="absolute inset-0 flex items-center justify-center text-[8px] text-slate-100/90">HP ${formatNumber(u.hp || u.maxHp)}/${formatNumber(u.maxHp)}</span>
+                                </div>
+                                ${u.maxMp > 0 ? `
+                                    <div class="relative w-full bg-slate-950 rounded-full h-2" title="MP ${u.mp}/${u.maxMp} | ฟื้น ${u.mpRecovery}/2s">
+                                        <div class="bg-blue-500 h-2 rounded-full transition-all" style="width: ${((u.mp || 0) / (u.maxMp || 1)) * 100}%"></div>
+                                        <span class="absolute inset-0 flex items-center justify-center text-[8px] text-slate-100/90">MP ${formatNumber(u.mp || 0)}/${formatNumber(u.maxMp)}</span>
                                     </div>
-                                    <div class="w-full bg-slate-950 rounded-full h-2">
-                                        <div class="${hpColor} h-2 rounded-full transition-all" style="width: ${hpPercent}%"></div>
-                                    </div>
+                                ` : ''}
+                                <div class="relative w-full bg-slate-950 rounded-full h-2" title="EXP ${u.exp || 0}/${u.expToNext || getExpToNextLevel(u.level || 1, u.typeId)}">
+                                    <div class="bg-fuchsia-500 h-2 rounded-full transition-all" style="width: ${Math.min(100, Math.floor(((u.exp || 0) / (u.expToNext || getExpToNextLevel(u.level || 1, u.typeId))) * 100))}%"></div>
+                                    <span class="absolute inset-0 flex items-center justify-center text-[8px] text-slate-100/90">EXP ${formatNumber(u.exp || 0)}/${formatNumber(u.expToNext || getExpToNextLevel(u.level || 1, u.typeId))}</span>
                                 </div>
                             </div>
-                            ${u.maxMp > 0 ? `<div class="flex items-center gap-2">
-                                <div class="flex-1">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="text-[9px] text-blue-400">MP</span>
-                                        <span class="text-[9px] text-slate-400 cursor-help" title="วิธีป้องกัน MP: ${u.mp}/${u.maxMp} | ฟื้น: ${u.mpRecovery}/2s" style="cursor: help;">${u.mp}/${u.maxMp}</span>
-                                    </div>
-                                    <div class="w-full bg-slate-950 rounded-full h-2">
-                                        <div class="bg-blue-500 h-2 rounded-full transition-all" style="width: ${(u.mp / u.maxMp) * 100}%"></div>
-                                    </div>
-                                </div>
-                            </div>` : ''}
                             <div class="grid grid-cols-3 gap-2">
                                 <button onclick="trainUnit(${u.uid})" class="bg-indigo-600 hover:bg-indigo-500 text-white py-1 rounded-lg text-[10px] font-bold">ฝึกฝน<br>($${formatNumber(trainingCost)})</button>
                                 <button onclick="openUnitActionModal(${u.uid})" class="bg-purple-600 hover:bg-purple-500 text-white py-1 rounded-lg text-[10px] font-bold">การกระทำ</button>
@@ -2245,8 +2263,14 @@
             } else if (item.type === 'Luxury' || item.type === 'Real Estate') {
                 // Luxury items: 85-95% resale (holds value)
                 sellMultiplier = 0.90;
-            } else if (item.type === 'Fantasy' || item.type === 'Unit') {
-                // Fantasy items & Units: 95-110% (collectible, rare)
+            } else if (item.type === 'Weapon') {
+                // Weapons: 60-75% resale (wear and tear)
+                sellMultiplier = 0.70;
+            } else if (item.type === 'Equipment') {
+                // Equipment: 65-80% resale
+                sellMultiplier = 0.72;
+            } else if (item.type === 'Unit') {
+                // Units: 95-110% (collectible, rare)
                 sellMultiplier = 1.05;
             }
             
@@ -2562,7 +2586,7 @@
                             <div class="text-right ml-4">
                                 <p class="${priceColor} font-bold">$${sellPrice} <span class="text-[10px]">${priceLabel}</span></p>
                                 <div class="mt-1 space-x-1">
-                                    <button onclick="useItem('${inv.uid}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">ใช้</button>
+                                    <button onclick="useItem('${inv.uid}', true)" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">ใช้</button>
                                     <button onclick="sellItem('${inv.uid}')" class="bg-orange-600 hover:bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold">ขาย</button>
                                 </div>
                             </div>
@@ -2757,6 +2781,72 @@
             return Math.min(0.80, deathReduction); // Cap at 80% reduction
         }
 
+        // Exp / unit leveling helpers
+        function getExpToNextLevel(level, typeId) {
+            let multiplier = 1.0;
+            if (typeId) {
+                if (typeId.includes('paladin')) multiplier = 1.6;
+                else if (typeId.includes('adventurer')) multiplier = 1.5;
+                else if (typeId.includes('mage') || typeId.includes('priest')) multiplier = 1.4;
+                else if (typeId.includes('warrior')) multiplier = 1.3;
+                else if (typeId.includes('thief')) multiplier = 1.2;
+                else if (typeId.includes('recruit')) multiplier = 1.1;
+                // villager default 1.0
+            }
+            const baseExp = 150;
+            const curve = 1.25;
+            return Math.max(75, Math.floor(multiplier * baseExp * Math.pow(curve, Math.max(0, level - 1))));
+        }
+
+        function processUnitRankUp(u) {
+            if (!u || !u.rank) return;
+            while (u.rank && RANK_DATA[u.rank] && u.level >= RANK_DATA[u.rank].levelReq) {
+                const oldRank = u.rank;
+                u.rank = RANK_DATA[u.rank].next;
+                const baseName = u.customName || u.name.split(' ')[0];
+                u.name = `${baseName} (${u.rank})`;
+                u.atk += 20;
+                u.def += 10;
+                log(`${getUnitDisplayName(u)} RANKED UP from ${oldRank} to ${u.rank}!`, "text-amber-400 font-bold");
+            }
+        }
+
+        function gainUnitExp(u, expAmount) {
+            if (!u) return;
+            u.exp = (u.exp || 0) + expAmount;
+            u.expToNext = u.expToNext || getExpToNextLevel(u.level || 1, u.typeId);
+
+            let leveled = false;
+            while (u.exp >= u.expToNext) {
+                u.exp -= u.expToNext;
+                u.level = (u.level || 1) + 1;
+                u.expToNext = getExpToNextLevel(u.level, u.typeId);
+
+                const atkIncrease = Math.max(1, Math.floor(u.atk * 0.06));
+                const defIncrease = Math.max(1, Math.floor(u.def * 0.06));
+                u.atk += atkIncrease;
+                u.def += defIncrease;
+
+                if (u.spell) u.spell += Math.max(1, Math.floor(u.spell * 0.05));
+                if (u.heal) u.heal += Math.max(1, Math.floor(u.heal * 0.05));
+
+                u.maxHp = calculateMaxHP(u.level, u.def);
+                u.hp = Math.min(u.hp + Math.floor(u.maxHp * 0.1), u.maxHp);
+
+                if (u.maxMp > 0) {
+                    const mpIncrease = Math.max(1, Math.floor(u.maxMp * 0.05));
+                    u.maxMp += mpIncrease;
+                    u.mp = Math.min(u.mp + mpIncrease, u.maxMp);
+                }
+
+                processUnitRankUp(u);
+                leveled = true;
+                log(`${getUnitDisplayName(u)} ได้เลเวลอัตโนมัติเป็น Lv.${u.level} จาก EXP`, "text-green-400");
+            }
+
+            return leveled;
+        }
+
         // Function to apply MP loss from dungeon encounters
         function applyMPLossFromCombat(units, monsterDifficulty) {
             // Apply MP loss to all units that encountered the monster
@@ -2850,12 +2940,12 @@
             return baseRate;
         }
         
-        function calculateUnitDamage(unit, monsterDifficulty, explorationPartySize, explorationType = 'near') {
+        function calculateUnitDamage(unit, monsterDifficulty, explorationPartySize, explorationType = 'near', challengeLevel = 1, healerReduction = 0) {
             // Calculate damage taken by a unit during exploration/dungeon
             // Difficulty: 0 = near (weak), 1 = around (medium), 2 = far (hard), 3+ = dungeon
             
             const baseDamagePercent = [
-                { min: 0.01, max: 20 },   // near: much lower becauseเหตุผลง่าย
+                { min: 0.01, max: 20 },   // near: much lower
                 { min: 5, max: 55 },      // around: moderate
                 { min: 20, max: 85 },     // far: hard
                 { min: 30, max: 99.99 }   // dungeon: very hard
@@ -2864,7 +2954,7 @@
             // Random damage within range
             let damagePercent = baseDamagePercent.min + (Math.random() * (baseDamagePercent.max - baseDamagePercent.min));
             
-            // Exploration type modifier (สำรวจไกลและดันเจี้ยนมีความเสี่ยงมากขึ้น)
+            // Exploration type modifier
             const explorationModifier = {
                 near: 0.7,
                 around: 0.9,
@@ -2872,6 +2962,10 @@
                 dungeon: 1.2
             }[explorationType] || 1;
             damagePercent *= explorationModifier;
+
+            // Dungeon/Exploration level-based threat
+            const challengeAdjust = challengeLevel * (explorationType === 'dungeon' ? 0.08 : 0.03);
+            damagePercent *= (1 + challengeAdjust);
             
             // Defense reduces damage
             const def = unit.def || 0;
@@ -2892,6 +2986,10 @@
             // Party size bonus: more units = less damage per unit (they help)
             const partySizeBonus = Math.min(0.5, (explorationPartySize - 1) * 0.1); // Up to 50% reduction
             damagePercent *= (1 - partySizeBonus);
+
+            // Group healer reduction; healerCount influences risk
+            const groupHealReduction = Math.min(0.7, healerReduction);
+            damagePercent *= (1 - groupHealReduction);
             
             // Convert percentage to actual HP damage
             const damage = Math.max(0.01, (unit.maxHp || 100) * (damagePercent / 100));
@@ -2899,16 +2997,17 @@
             return damage;
         }
         
-        function applyUnitDamageAndDeath(units, monsterDifficulty, explorationType = 'near') {
+        function applyUnitDamageAndDeath(units, monsterDifficulty, explorationType = 'near', challengeLevel = 1) {
             // Apply damage to all units from encounter
             // Returns { survivors: [...], deaths: [...], injured: [...] }
             
             const result = { survivors: [], deaths: [], injured: [] };
             const partnerSize = units.length;
+            const healerReduction = calculateDeathChanceReduction(units.map(u => u.uid));
             
             units.forEach(unit => {
                 const cause = getRandomDamageCause(explorationType, monsterDifficulty);
-                const damage = calculateUnitDamage(unit, monsterDifficulty, partnerSize, explorationType);
+                const damage = calculateUnitDamage(unit, monsterDifficulty, partnerSize, explorationType, challengeLevel, healerReduction);
                 const hpBefore = unit.hp || unit.maxHp;
                 const hpAfter = Math.max(0, hpBefore - damage);
 
@@ -2949,6 +3048,8 @@
                 if (item.type === 'Real Estate') return false;
                 // Dungeon-only items are not available in near
                 if (item.dungeonOnly && type === 'near') return false;
+                // Exploration-only items can drop only in exploration (here only near as configured)
+                if (item.explorationOnly && type !== 'near') return false;
 
                 // Value-limited by exploration depth
                 if (type === 'near' && item.basePrice > 250) return false;
@@ -2970,7 +3071,13 @@
                 const rarityFactor = 1 / (item.basePrice + 10);
                 const typeBoost = type === 'near' ? 1.5 : type === 'around' ? 1.1 : type === 'far' ? 1.0 : 0.7;
                 const dungeonBoost = item.dungeonOnly ? (type === 'dungeon' ? 2.5 : 0.1) : 1;
-                return { item, weight: Math.max(0.001, rarityFactor * typeBoost * dungeonBoost) };
+
+                // ให้ Fresh Poop น้อยลงใน near และเพิ่ม Glowing Mushroom เฉพาะ near
+                let extraMultiplier = 1;
+                if (type === 'near' && item.id === 'poop') extraMultiplier = 0.2;
+                if (type === 'near' && item.id === 'glowing_mushroom') extraMultiplier = 2.5;
+
+                return { item, weight: Math.max(0.001, rarityFactor * typeBoost * dungeonBoost * extraMultiplier) };
             });
 
             const totalWeight = weighted.reduce((sum, iw) => sum + iw.weight, 0);
@@ -3299,6 +3406,8 @@
             
             state.balance -= cost;
             u.level++;
+            u.exp = 0;
+            u.expToNext = getExpToNextLevel(u.level, u.typeId);
             
             // Stat growth: Fixed + Small Percentage (not massive percentage growth)
             // Weak units (villager/recruit/thief) grow slowly with mostly fixed increases
@@ -3866,7 +3975,7 @@
                         <p>หน่วยส่ง: ${logEntry.unitsSentCount}, กลับ: ${logEntry.unitsReturnedCount}, ตาย: ${logEntry.unitsDiedCount}, บาดเจ็บ: ${logEntry.unitsInjuredCount}</p>
                         <p class="mt-1">รางวัลเงิน: <strong>+$${formatNumber(logEntry.rewards.money)}</strong> • ไอเทม: ${logEntry.rewards.itemCount}</p>
                     </div>
-                    <div class="max-h-72 overflow-y-auto bg-slate-900 p-3 rounded-lg border border-slate-800 text-sm space-y-1">
+                    <div class="max-h-72 overflow-y-auto bg-slate-900 p-3 rounded-lg border border-slate-800 text-sm smooth-scroll space-y-1">
                         ${logEntry.events.map(event => `<p>${event}</p>`).join('')}
                     </div>
                 </div>
@@ -3890,7 +3999,8 @@
             applyMPLossFromCombat(units, monsterDifficulty);
             
             // === NEW: Apply damage and check for deaths ===
-            const damageResult = applyUnitDamageAndDeath(units, monsterDifficulty, type);
+            const challengeLevel = { near: 1, around: 2, far: 3 }[type] || 1;
+            const damageResult = applyUnitDamageAndDeath(units, monsterDifficulty, type, challengeLevel);
             
             // Process deaths - permanently remove dead units
             damageResult.deaths.forEach(deathInfo => {
@@ -3904,7 +4014,15 @@
             
             // Use survivors from damage calculation (units with hp > 0)
             survivors = damageResult.survivors;
-            
+
+            // Give EXP to survivors
+            const expBase = { near: 15, around: 35, far: 65 }[type] || 25;
+            survivors.forEach(unit => {
+                const expGain = Math.floor(expBase + (challengeLevel * 10) + Math.random() * 20);
+                gainUnitExp(unit, expGain);
+                eventLog.push(`🌟 ${getUnitDisplayName(unit)} ได้ EXP +${expGain}`);
+            });
+
             // Generate item findings and other events for survivors only
             survivors.forEach(unit => {
                 const rand = Math.random();
@@ -4047,6 +4165,7 @@
             }
             
             document.getElementById('dungeons-found').innerText = state.dungeons.length;
+            renderDungeonLogs();
         }
 
         function scoutDungeon() {
@@ -4229,7 +4348,11 @@
                 state.units = state.units.filter(u => u.uid !== unit.uid);
             });
 
-            const explorationDuration = 180 + Math.random() * 120; // 3-5 minutes
+            const level = Math.max(0, Math.min(12, dungeon.level));
+            const minMinutes = 1 + level * 0.5;    // level 0 -> 1 min, level 12 -> 7 min
+            const maxMinutes = 3 + level * 1.0;    // level 0 -> 3 min, level 12 -> 15 min
+            const explorationDuration = Math.floor((minMinutes + Math.random() * (maxMinutes - minMinutes)) * 60);
+
             const dungeonExploration = {
                 id: Date.now(),
                 dungeonId: dungeon.id,
@@ -4273,21 +4396,27 @@
             
             if (!window.activeDungeonExplorations || window.activeDungeonExplorations.length === 0) {
                 statusEl.innerHTML = '';
+                const remainingEl = document.getElementById('dungeon-remaining-time');
+                if (remainingEl) remainingEl.innerText = '-';
                 return;
             }
             
             let html = '<div class="space-y-2">';
+            let bestRemaining = Infinity;
+
             window.activeDungeonExplorations.forEach(exp => {
                 const mins = Math.floor(exp.remainingTime / 60);
                 const secs = exp.remainingTime % 60;
                 const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
+                if (exp.remainingTime < bestRemaining) bestRemaining = exp.remainingTime;
+
                 const dungeon = state.dungeons.find(d => d.id === exp.dungeonId);
                 
                 if (exp.status === 'counting') {
-                    html += `<div class="text-yellow-400 text-sm">⏳ สำรวจดันเจี้ยนระดับ ${dungeon?.level} - ${timeStr}</div>`;
+                    html += `<div class="text-yellow-400 text-sm">⏳ สำรวจดันเจี้ยนระดับ ${dungeon?.level} - เหลือ ${timeStr}</div>`;
                 } else if (exp.status === 'ready') {
                     html += `<div class="flex items-center gap-2">
-                        <span class="text-emerald-400 text-sm">✓ สำรวจดันเจี้ยนเสร็จได้แล้ว</span>
+                        <span class="text-emerald-400 text-sm">✓ สำรวจดันเจี้ยนระดับ ${dungeon?.level} พร้อมเข้าชมผล</span>
                         <button onclick="completeDungeonExploration(${exp.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded text-xs font-bold">ดูผล</button>
                     </div>`;
                 }
@@ -4295,6 +4424,42 @@
             html += '</div>';
             
             statusEl.innerHTML = html;
+
+            const remainingEl = document.getElementById('dungeon-remaining-time');
+            if (remainingEl) {
+                if (bestRemaining === Infinity) {
+                    remainingEl.innerText = '-';
+                } else {
+                    const rM = Math.floor(bestRemaining / 60);
+                    const rS = bestRemaining % 60;
+                    remainingEl.innerText = `${rM}:${String(rS).padStart(2, '0')} (เร็วที่สุด)`;
+                }
+            }
+
+            renderDungeonLogs();
+        }
+
+        function renderDungeonLogs() {
+            const logContainer = document.getElementById('dungeon-log-list');
+            if (!logContainer) return;
+
+            if (!state.dungeonLogs || state.dungeonLogs.length === 0) {
+                logContainer.innerHTML = '<div class="text-slate-500">ยังไม่มีบันทึกการสำรวจดันเจี้ยน</div>';
+                return;
+            }
+
+            logContainer.innerHTML = state.dungeonLogs.slice(0, 6).map(log => {
+                const time = new Date(log.timestamp).toLocaleString(undefined, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                return `
+                    <div class="bg-slate-900 border border-slate-800 p-2 rounded-lg">
+                        <div class="flex justify-between items-center mb-1 text-xs text-slate-400">
+                            <span>${time}</span>
+                            <span class="text-amber-300">Lv.${log.level}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-300">ส่ง ${log.unitsSentCount}, กลับ ${log.unitsReturnedCount}, ตาย ${log.unitsDiedCount}</div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function completeDungeonExploration(explorId) {
@@ -4314,7 +4479,7 @@
             rewards.money = Math.floor(baseReward * (0.8 + Math.random() * 0.4));
             
             // === NEW: Apply damage and check for deaths in dungeon ===
-            const damageResult = applyUnitDamageAndDeath(exploration.units, 3, 'dungeon'); // Difficulty 3 = extreme (dungeon)
+            const damageResult = applyUnitDamageAndDeath(exploration.units, 3, 'dungeon', dungeon.level); // Difficulty 3 = extreme (dungeon)
             
             // Process deaths - permanently remove dead units
             damageResult.deaths.forEach(deathInfo => {
@@ -4328,7 +4493,14 @@
             
             // Use survivors from damage calculation + item/money findings
             survivors = damageResult.survivors;
-            
+
+            // Give EXP to survivors
+            survivors.forEach(unit => {
+                const expGain = Math.floor(60 + dungeon.level * 15 + dungeon.depth * 3 + Math.random() * 25);
+                gainUnitExp(unit, expGain);
+                eventLog.push(`🌟 ${getUnitDisplayName(unit)} ได้ EXP +${expGain} จากดันเจี้ยน`);
+            });
+
             // Generate item findings for survivors only
             survivors.forEach(unit => {
                 const rand = Math.random();
@@ -4834,7 +5006,9 @@
                         heal: healPower,
                         spell: spellPower,
                         upkeep: Math.floor(itemDef.baseStats.upkeep + (level * upkeepPerLevel)),
-                        isDefender: false
+                        isDefender: false,
+                        exp: 0,
+                        expToNext: getExpToNextLevel(level)
                     };
                 } else {
                     // Standard, non-ranked unit
@@ -4873,7 +5047,9 @@
                         heal: healPower > 0 ? healPower : 0, 
                         spell: spellPower > 0 ? spellPower : 0,
                         upkeep: itemDef.baseStats.upkeep,
-                        isDefender: false
+                        isDefender: false,
+                        exp: 0,
+                        expToNext: getExpToNextLevel(1)
                     };
                 }
                 // Initialize HP based on level and defense
@@ -4921,11 +5097,17 @@
             log(`Bought ${itemId}`, "text-purple-400");
         }
 
-        function useItem(uid) {
+        function useItem(uid, fromConsumablesModal = false) {
             const idx = state.inventory.findIndex(i => i.uid == uid);
             if(idx === -1) return;
             const inv = state.inventory[idx];
             const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
+
+            // Handle MP Potions - open unit selection dialog
+            if(item.effect && item.effect.mp) {
+                useMPPotionOnUnit(uid);
+                return;
+            }
 
             if(item.effect) {
                 if(item.effect.hp) state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + item.effect.hp);
@@ -4939,10 +5121,16 @@
                 updateStatsUI();
                 updatePortfolioUI();
                 
-                // Close and reopen inventory to refresh
-                const modal = document.getElementById('inventory-modal');
-                if (modal) modal.remove();
-                openInventoryModal();
+                // Close and reopen appropriate modal
+                if (fromConsumablesModal) {
+                    const modal = document.getElementById('consumables-modal');
+                    if (modal) modal.remove();
+                    openConsumablesModal();
+                } else {
+                    const modal = document.getElementById('inventory-modal');
+                    if (modal) modal.remove();
+                    openInventoryModal();
+                }
             }
         }
 
@@ -6624,6 +6812,10 @@
                 state.inventory = saved.inventory || [];
                 state.stats = saved.stats || { hp: 100, maxHp: 100, energy: 100, maxEnergy: 100, atk: 10, def: 5 };
                 state.units = saved.units || [];
+                state.units.forEach(u => {
+                    if (typeof u.exp !== 'number') u.exp = 0;
+                    if (typeof u.expToNext !== 'number') u.expToNext = getExpToNextLevel(u.level || 1);
+                });
                 state.pendingHires = saved.pendingHires || [];
                 state.shopStock = saved.shopStock || {};
                 state.multiplierLevel = saved.multiplierLevel || 2;
