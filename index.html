@@ -90,7 +90,7 @@
                     <i data-lucide="candlestick-chart" class="w-12 h-12 text-blue-500"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Trading and Fantasy</h1>
-                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.7 beta</p>
+                <p class="text-slate-400 mb-8 text-sm">V 0.4.2.8 beta</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold mb-2 text-slate-500 uppercase">ชื่อของคุณ</label>
@@ -135,10 +135,21 @@
                                 <div class="stat-bar-bg"><div id="bar-energy" class="stat-bar-fill bg-amber-500" style="width: 100%"></div></div>
                             </div>
                         </div>
+                        <!-- Capture Status -->
+                        <div id="capture-status" class="mt-3 hidden p-3 bg-indigo-950/30 border border-indigo-500 rounded-lg">
+                            <div class="flex items-center gap-2 text-indigo-400 text-[10px] font-bold mb-1">
+                                <i data-lucide="lock" class="w-4 h-4"></i> ถูกจับตัว
+                            </div>
+                            <div class="text-sm font-bold text-indigo-300"><span id="capture-remaining-time">0</span>s</div>
+                            <div class="text-[9px] text-indigo-300 mt-1">โดย: <span id="capture-by-name">-</span></div>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="flex items-center justify-between gap-6 bg-slate-900/30 p-2 rounded-xl">
+                    <div id="captured-players-list" class="hidden px-4 border-r border-slate-800 max-h-20 overflow-y-auto text-[10px]">
+                        <!-- Will show captured players and release buttons -->
+                    </div>
                     <div class="px-4 border-r border-slate-800">
                         <p class="text-[10px] text-slate-500 uppercase font-bold">Balance</p>
                         <p id="display-balance" class="text-2xl font-bold text-emerald-400">$10,000.00</p>
@@ -177,7 +188,7 @@
                     <!-- Separator -->
                     <div class="px-1 text-slate-700 text-lg">|</div>
                     
-                    <button id="home-btn" onclick="closeLeaderboardModal()" class="p-3 hover:bg-blue-500/10 text-blue-400 rounded-xl flex flex-col items-center" title="ออกไปหน้าแรก">
+                    <button id="home-btn" onclick="goToHome()" class="p-3 hover:bg-blue-500/10 text-blue-400 rounded-xl flex flex-col items-center" title="ออกไปหน้าแรก">
                         <i data-lucide="home" class="w-5 h-5"></i>
                         <span class="text-[9px] mt-1">หน้าแรก</span>
                     </button>
@@ -437,113 +448,136 @@
             </div>
 
             <!-- Profile & Status Screen -->
-            <div id="profile-screen" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Status Panel -->
-                <div class="glass-card p-6 rounded-2xl border-t-4 border-indigo-500 col-span-1">
-                    <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2"><i data-lucide="user-cog"></i> สถานะตัวละคร</h2>
-                    
-                    <div class="space-y-6">
-                        <div>
-                            <div class="flex justify-between mb-1"><span class="text-sm font-bold text-rose-400">Health (HP)</span> <span id="stat-hp-val" class="text-sm">100/100</span></div>
-                            <div class="w-full bg-slate-900 rounded-full h-4"><div id="stat-hp-bar" class="bg-rose-500 h-4 rounded-full transition-all" style="width: 100%"></div></div>
-                            <p class="text-[10px] text-slate-500 mt-1">ฟื้นฟูด้วยยาหรือหมอ ลดลงเมื่อถูกโจมตี</p>
-                        </div>
-                        <div>
-                            <div class="flex justify-between mb-1"><span class="text-sm font-bold text-amber-400">Energy</span> <span id="stat-energy-val" class="text-sm">100/100</span></div>
-                            <div class="w-full bg-slate-900 rounded-full h-4"><div id="stat-energy-bar" class="bg-amber-500 h-4 rounded-full transition-all" style="width: 100%"></div></div>
-                            <p class="text-[10px] text-slate-500 mt-1">ลดลงทุกนาที ต้องกินอาหารเพื่อเพิ่ม</p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
-                            <div class="text-center p-3 bg-slate-900 rounded-xl">
-                                <i data-lucide="sword" class="w-6 h-6 mx-auto text-rose-500 mb-2"></i>
-                                <div class="text-xs text-slate-400">พลังโจมตี</div>
-                                <div id="stat-atk" class="text-xl font-bold text-white">10</div>
+            <div id="profile-screen" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Status Panel -->
+                    <div class="glass-card p-6 rounded-2xl border-t-4 border-indigo-500 col-span-1">
+                        <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2"><i data-lucide="user-cog"></i> สถานะตัวละคร</h2>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex justify-between mb-1"><span class="text-sm font-bold text-rose-400">Health (HP)</span> <span id="stat-hp-val" class="text-sm">100/100</span></div>
+                                <div class="w-full bg-slate-900 rounded-full h-4"><div id="stat-hp-bar" class="bg-rose-500 h-4 rounded-full transition-all" style="width: 100%"></div></div>
+                                <p class="text-[10px] text-slate-500 mt-1">ฟื้นฟูด้วยยาหรือหมอ ลดลงเมื่อถูกโจมตี</p>
                             </div>
-                            <div class="text-center p-3 bg-slate-900 rounded-xl">
-                                <i data-lucide="shield" class="w-6 h-6 mx-auto text-blue-500 mb-2"></i>
-                                <div class="text-xs text-slate-400">พลังป้องกัน</div>
-                                <div id="stat-def" class="text-xl font-bold text-white">5</div>
+                            <div>
+                                <div class="flex justify-between mb-1"><span class="text-sm font-bold text-amber-400">Energy</span> <span id="stat-energy-val" class="text-sm">100/100</span></div>
+                                <div class="w-full bg-slate-900 rounded-full h-4"><div id="stat-energy-bar" class="bg-amber-500 h-4 rounded-full transition-all" style="width: 100%"></div></div>
+                                <p class="text-[10px] text-slate-500 mt-1">ลดลงทุกนาที ต้องกินอาหารเพื่อเพิ่ม</p>
                             </div>
-                        </div>
-                        <div class="pt-4 border-t border-slate-800">
-                            <button onclick="openEquipmentModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
-                                <i data-lucide="shield"></i> ดูรายละเอียด (<span id="equipment-count">0</span>)
+                            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+                                <div class="text-center p-3 bg-slate-900 rounded-xl">
+                                    <i data-lucide="sword" class="w-6 h-6 mx-auto text-rose-500 mb-2"></i>
+                                    <div class="text-xs text-slate-400">พลังโจมตี</div>
+                                    <div id="stat-atk" class="text-xl font-bold text-white">10</div>
+                                </div>
+                                <div class="text-center p-3 bg-slate-900 rounded-xl">
+                                    <i data-lucide="shield" class="w-6 h-6 mx-auto text-blue-500 mb-2"></i>
+                                    <div class="text-xs text-slate-400">พลังป้องกัน</div>
+                                    <div id="stat-def" class="text-xl font-bold text-white">5</div>
+                                </div>
+                            </div>
+                            <div class="pt-4 border-t border-slate-800">
+                                <button onclick="openEquipmentModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
+                                    <i data-lucide="shield"></i> ดูรายละเอียด (<span id="equipment-count">0</span>)
+                                </button>
+                            </div>
+                            <button id="heal-self-btn" onclick="healSelf()" class="w-full bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="heart-pulse"></i> รักษาตัวเอง ($0)
+                            </button>
+                            
+                            <button onclick="openInventoryModal()" class="w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="backpack"></i> กระเป๋า (<span id="inventory-count">0</span>)
+                            </button>
+
+                            <button onclick="openConsumablesModal()" class="w-full bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="coffee"></i> ของบริโภค (<span id="consumable-count">0</span>)
+                            </button>
+
+                            <button onclick="openHousingModal()" class="w-full bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="home"></i> ที่อยู่ (<span id="housing-count">0</span>)
+                            </button>
+                            
+                            <!-- Multiplier Upgrade -->
+                            <div class="pt-4 border-t border-slate-800 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h4 class="text-sm font-bold text-blue-300 flex items-center gap-2"><i data-lucide="zap"></i> ตัวคูณสูงสุด</h4>
+                                        <p id="current-multiplier-level" class="text-lg font-bold text-blue-400">2x</p>
+                                    </div>
+                                    <div id="next-upgrade-cost-display" class="text-right text-xs text-slate-400">
+                                        <p>ต่อไป: 3x</p>
+                                        <p class="text-blue-300 font-bold">$100</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button id="upgrade-multiplier-btn" onclick="upgradeMultiplier()" class="w-full bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="arrow-up"></i> <span id="upgrade-multiplier-text">อัปเกรดตัวคูณ ($100)</span>
                             </button>
                         </div>
-                        <button id="heal-self-btn" onclick="healSelf()" class="w-full bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="heart-pulse"></i> รักษาตัวเอง ($0)
-                        </button>
-                        
-                        <button onclick="openInventoryModal()" class="w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="backpack"></i> กระเป๋า (<span id="inventory-count">0</span>)
-                        </button>
+                    </div>
 
-                        <button onclick="openConsumablesModal()" class="w-full bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="coffee"></i> ของบริโภค (<span id="consumable-count">0</span>)
-                        </button>
-
-                        <button onclick="openHousingModal()" class="w-full bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="home"></i> ที่อยู่ (<span id="housing-count">0</span>)
-                        </button>
-                        
-                        <!-- Multiplier Upgrade -->
-                        <div class="pt-4 border-t border-slate-800 space-y-2">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h4 class="text-sm font-bold text-blue-300 flex items-center gap-2"><i data-lucide="zap"></i> ตัวคูณสูงสุด</h4>
-                                    <p id="current-multiplier-level" class="text-lg font-bold text-blue-400">2x</p>
-                                </div>
-                                <div id="next-upgrade-cost-display" class="text-right text-xs text-slate-400">
-                                    <p>ต่อไป: 3x</p>
-                                    <p class="text-blue-300 font-bold">$100</p>
-                                </div>
+                    <!-- Unit & Training -->
+                    <div class="glass-card p-6 rounded-2xl col-span-2 flex flex-col">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2"><i data-lucide="tent"></i> กองกำลัง & ฝึกฝน</h2>
+                            <div class="flex items-center gap-4">
+                                <button onclick="openExplorationModal()" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2" id="explore-btn">
+                                    <i data-lucide="compass" class="w-4 h-4"></i> สำรวจ
+                                </button>
+                                <button onclick="openMultiActionModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2" id="multi-action-btn" style="display:none;">
+                                    <i data-lucide="users" class="w-4 h-4"></i> ส่งหลายตัว
+                                </button>
+                                <div id="exploration-status" class="text-sm text-yellow-400 font-bold"></div>
+                                <div class="text-xs text-slate-400">ค่าจ้างรายนาที: <span id="total-upkeep" class="text-rose-400 font-bold">$0</span></div>
                             </div>
                         </div>
-                        
-                        <button id="upgrade-multiplier-btn" onclick="upgradeMultiplier()" class="w-full bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white py-2 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="arrow-up"></i> <span id="upgrade-multiplier-text">อัปเกรดตัวคูณ ($100)</span>
-                        </button>
+                        <!-- Unit Filter and Capacity Info -->
+                        <div class="mb-4 space-y-2">
+                            <div class="flex gap-2 items-center">
+                                <input type="text" id="unit-search-box" placeholder="ค้นหา ชื่อ อาชีพ หรือเลเวล... (Hover เพื่อเลือก)" 
+                                    class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    onkeyup="filterUnitList()">
+                                <button id="select-all-btn" onclick="selectAllUnits()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg font-bold text-xs" style="display:none;">
+                                    เลือกทั้งหมด
+                                </button>
+                                <button id="clear-sel-btn" onclick="clearUnitSelection()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg font-bold text-xs" style="display:none;">
+                                    เคลียร์
+                                </button>
+                                <div class="text-xs text-indigo-400 font-bold whitespace-nowrap bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
+                                    <span id="unit-capacity-display">0/2</span>
+                                </div>
+                            </div>
+                            <!-- Unit Category Tabs -->
+                            <div id="unit-category-tabs" class="flex flex-wrap gap-2">
+                                <!-- Category buttons rendered here -->
+                            </div>
+                        </div>
+                        <div id="unit-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[700px] p-1 smooth-scroll">
+                            <!-- Units rendered here -->
+                        </div>
                     </div>
                 </div>
 
-                <!-- Unit & Training -->
-                <div class="glass-card p-6 rounded-2xl col-span-2 flex flex-col">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-white flex items-center gap-2"><i data-lucide="tent"></i> กองกำลัง & ฝึกฝน</h2>
-                        <div class="flex items-center gap-4">
-                            <button onclick="openExplorationModal()" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2" id="explore-btn">
-                                <i data-lucide="compass" class="w-4 h-4"></i> สำรวจ
-                            </button>
-                            <button onclick="openMultiActionModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2" id="multi-action-btn" style="display:none;">
-                                <i data-lucide="users" class="w-4 h-4"></i> ส่งหลายตัว
-                            </button>
-                            <div id="exploration-status" class="text-sm text-yellow-400 font-bold"></div>
-                            <div class="text-xs text-slate-400">ค่าจ้างรายนาที: <span id="total-upkeep" class="text-rose-400 font-bold">$0</span></div>
-                        </div>
+                <!-- Activity Logs Panel -->
+                <div class="glass-card p-6 rounded-2xl border-t-4 border-cyan-500">
+                    <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="history"></i> บันทึกกิจกรรม</h2>
+                    
+                    <!-- Filter Buttons -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button onclick="filterActivityLogs('all')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white filter-log-btn" data-filter="all">ทั้งหมด</button>
+                        <button onclick="filterActivityLogs('friend')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white filter-log-btn" data-filter="friend"><i data-lucide="users" class="inline w-3 h-3 mr-1"></i> เพื่อน</button>
+                        <button onclick="filterActivityLogs('exploration')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-yellow-600 text-slate-300 hover:text-white filter-log-btn" data-filter="exploration"><i data-lucide="compass" class="inline w-3 h-3 mr-1"></i> สำรวจ</button>
+                        <button onclick="filterActivityLogs('dungeon')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white filter-log-btn" data-filter="dungeon"><i data-lucide="map-pin" class="inline w-3 h-3 mr-1"></i> ดันเจี้ยน</button>
+                        <button onclick="filterActivityLogs('trading')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white filter-log-btn" data-filter="trading"><i data-lucide="trending-up" class="inline w-3 h-3 mr-1"></i> การค้า</button>
+                        <button onclick="filterActivityLogs('unit')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white filter-log-btn" data-filter="unit"><i data-lucide="users" class="inline w-3 h-3 mr-1"></i> หน่วย</button>
+                        <button onclick="filterActivityLogs('item')" class="px-3 py-2 rounded-lg font-bold text-xs transition-all bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white filter-log-btn" data-filter="item"><i data-lucide="box" class="inline w-3 h-3 mr-1"></i> ของ</button>
                     </div>
-                    <!-- Unit Filter and Capacity Info -->
-                    <div class="mb-4 space-y-2">
-                        <div class="flex gap-2 items-center">
-                            <input type="text" id="unit-search-box" placeholder="ค้นหา ชื่อ อาชีพ หรือเลเวล... (Hover เพื่อเลือก)" 
-                                class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                onkeyup="filterUnitList()">
-                            <button id="select-all-btn" onclick="selectAllUnits()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg font-bold text-xs" style="display:none;">
-                                เลือกทั้งหมด
-                            </button>
-                            <button id="clear-sel-btn" onclick="clearUnitSelection()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg font-bold text-xs" style="display:none;">
-                                เคลียร์
-                            </button>
-                            <div class="text-xs text-indigo-400 font-bold whitespace-nowrap bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg">
-                                <span id="unit-capacity-display">0/2</span>
-                            </div>
-                        </div>
-                        <!-- Unit Category Tabs -->
-                        <div id="unit-category-tabs" class="flex flex-wrap gap-2">
-                            <!-- Category buttons rendered here -->
-                        </div>
-                    </div>
-                    <div id="unit-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[700px] p-1 smooth-scroll">
-                        <!-- Units rendered here -->
+
+                    <!-- Logs List -->
+                    <div id="activity-logs-container" class="bg-slate-900/50 rounded-xl p-4 max-h-[400px] overflow-y-auto smooth-scroll space-y-2">
+                        <p class="text-slate-500 text-center py-8">ยังไม่มีบันทึก</p>
                     </div>
                 </div>
             </div>
@@ -676,11 +710,47 @@
         </div>
     </div>
 
+    <!-- Activity Log Detail Modal -->
+    <div id="log-detail-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[90] hidden flex items-center justify-center p-4">
+        <div class="glass-card p-8 rounded-3xl max-w-2xl w-full border-t-4 border-cyan-500 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-cyan-400 flex items-center gap-2"><i data-lucide="info"></i> รายละเอียดบันทึก</h2>
+                <button onclick="closeModal('log-detail-modal')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <p class="text-xs text-slate-500 uppercase mb-1">เวลา</p>
+                    <p id="log-detail-time" class="text-sm text-slate-300">-</p>
+                </div>
+                
+                <div>
+                    <p class="text-xs text-slate-500 uppercase mb-1">หมวดหมู่</p>
+                    <span id="log-detail-category" class="inline-block px-2 py-1 rounded text-xs font-bold bg-slate-800 text-slate-300">-</span>
+                </div>
+                
+                <div>
+                    <p class="text-xs text-slate-500 uppercase mb-1">รายการ</p>
+                    <p id="log-detail-message" class="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap break-words bg-slate-900/50 p-4 rounded-lg max-h-[300px] overflow-y-auto">-</p>
+                </div>
+                
+                <div id="log-detail-extra" class="bg-slate-900/50 p-4 rounded-lg hidden">
+                    <p class="text-xs text-slate-500 uppercase mb-2">ข้อมูลเพิ่มเติม</p>
+                    <div id="log-detail-extra-content" class="text-xs text-slate-300 space-y-1"></div>
+                </div>
+            </div>
+            
+            <button onclick="closeModal('log-detail-modal')" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded-lg font-bold mt-6">ปิด</button>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="fixed top-6 right-6 z-[100] space-y-2 pointer-events-none max-w-sm"></div>
 
     <!-- Alert Modal -->
-    <div id="alert-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div id="alert-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[999] hidden flex items-center justify-center p-4">
         <div class="glass-card p-6 rounded-2xl max-w-xs w-full text-center">
             <div id="alert-icon" class="mb-4 flex justify-center text-blue-400"></div>
             <h3 id="alert-title" class="text-lg font-bold mb-2"></h3>
@@ -1078,6 +1148,10 @@
             actionCooldowns: {}, // { 'uid_ATTACK': timestamp, 'uid_GIFT': timestamp, etc. }
             loanAutoPayCount: 0, // Track how many times auto-payment has failed (0-3)
             capturedUntil: 0, // Timestamp when capture effect ends (0 = not captured)
+            capturedBy: null, // { username, conn, startTime } - Who captured us
+            capturedPlayers: [], // Array of { username, peerId, startTime, releaseTime } - Players we're capturing
+            rescueAttemptCooldown: {}, // { playerId: timestamp } - Cooldown for units to search for us
+            lastRescueAttempt: 0, // Timestamp of last rescue attempt
             dungeons: [], // { id, level, depth, discovered, scoutedLevel, exploringUnits: [] , rewards: [] }
             dungeonLogs: [], // { id, timestamp, level, depth, unitsSentCount, unitsReturnedCount, rewards, events }
             selectedLoanAmount: null, // Remember which loan amount button was clicked
@@ -1088,7 +1162,9 @@
             upkeepPaymentStartTime: Date.now(), // When current upkeep countdown started
             lastShownPaymentPhase: -1, // Track last shown phase to prevent duplicate toasts
             upkeepWarningStarted: false, // Track if upkeep warning has started
-            upkeepWarningPhase: 0 // Current warning phase for removal
+            upkeepWarningPhase: 0, // Current warning phase for removal
+            activityLogs: [], // Detailed activity logs
+            logsFilter: 'all' // Filter for logs: 'all', 'friend', 'exploration', 'dungeon', 'trading', 'unit', 'item', 'other'
         };
 
         // --- Database ---
@@ -1153,6 +1229,8 @@
                 multiplierLevel: state.multiplierLevel,
                 actionCooldowns: state.actionCooldowns,
                 capturedUntil: state.capturedUntil,
+                capturedBy: state.capturedBy || null,
+                capturedPlayers: state.capturedPlayers || [],
                 dungeons: state.dungeons,
                 activeExplorations: explorations,
                 activeDungeonExplorations: dungeonExplorations,
@@ -1163,7 +1241,8 @@
                 lastUpkeepPayTime: state.lastUpkeepPayTime,
                 upkeepPaymentPhase: state.upkeepPaymentPhase,
                 upkeepWarningStarted: state.upkeepWarningStarted,
-                upkeepWarningPhase: state.upkeepWarningPhase
+                upkeepWarningPhase: state.upkeepWarningPhase,
+                activityLogs: state.activityLogs || []
             });
             tx.objectStore("accounts").put({
                 username: state.username,
@@ -1181,6 +1260,8 @@
                 multiplierLevel: state.multiplierLevel,
                 actionCooldowns: state.actionCooldowns,
                 capturedUntil: state.capturedUntil,
+                capturedBy: state.capturedBy || null,
+                capturedPlayers: state.capturedPlayers || [],
                 dungeons: state.dungeons,
                 activeExplorations: explorations,
                 activeDungeonExplorations: dungeonExplorations,
@@ -1192,7 +1273,8 @@
                 upkeepPaymentPhase: state.upkeepPaymentPhase,
                 upkeepWarningStarted: state.upkeepWarningStarted,
                 upkeepWarningPhase: state.upkeepWarningPhase,
-                lastPlayed: new Date().getTime()
+                lastPlayed: new Date().getTime(),
+                activityLogs: state.activityLogs || []
             });
         }
 
@@ -1461,11 +1543,11 @@
         function formatNumber(num) {
             // Format numbers with K, M, B suffixes - for numbers >= 100,000
             if (num >= 1000000000) {
-                return (num / 1000000000).toFixed(2).replace(/\.00$/, '') + 'b';
+                return (num / 1000000000).toFixed(3).replace(/\.?0+$/, '') + 'b';
             } else if (num >= 1000000) {
-                return (num / 1000000).toFixed(2).replace(/\.00$/, '') + 'm';
+                return (num / 1000000).toFixed(3).replace(/\.?0+$/, '') + 'm';
             } else if (num >= 100000) {
-                return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'k';
+                return (num / 1000).toFixed(3).replace(/\.?0+$/, '') + 'k';
             }
             // For numbers < 100,000, use full with comma formatting
             return Math.floor(num).toLocaleString();
@@ -3590,9 +3672,7 @@
         }
 
         function openExplorationModal() {
-            if (state.units.length === 0) {
-                return showAlert("ข้อผิดพลาด", "คุณต้องมีอย่างน้อย 1 หน่วยเพื่อสำรวจ", "alert-circle");
-            }
+            const noUnits = (state.units.length === 0);
             
             let modalHTML = `<div id="exploration-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
                 <div class="glass-card p-6 rounded-3xl max-w-6xl w-full border-t-4 border-yellow-500">
@@ -3825,12 +3905,22 @@
             const infoEl = document.getElementById('exploration-info');
             if (!infoEl) return;
             
+            const startBtn = document.querySelector('#exploration-modal button[onclick="startExploration()"]');
+            const noUnits = (state.units.length === 0);
+
             if (selectedCount === 0) {
-                infoEl.innerHTML = '<p class="text-cyan-300">กรุณาเลือกอย่างน้อย 1 หน่วย</p>';
+                if (noUnits) {
+                    infoEl.innerHTML = '<p class="text-yellow-300">ไม่มีหน่วยอยู่ในระบบ โปรดสร้างหน่วยก่อน</p>';
+                } else {
+                    infoEl.innerHTML = '<p class="text-cyan-300">กรุณาเลือกอย่างน้อย 1 หน่วย</p>';
+                }
+                if (startBtn) startBtn.disabled = true;
             } else if (selectedCount > maxForType) {
                 infoEl.innerHTML = `<p class="text-red-400">เลือกหน่วยได้สูงสุด ${maxForType} หน่วยสำหรับการสำรวจนี้ (${selectedCount} เลือกแล้ว)</p>`;
+                if (startBtn) startBtn.disabled = true;
             } else {
                 infoEl.innerHTML = `<p class="text-green-400">เลือกแล้ว ${selectedCount} หน่วย (สูงสุด ${maxForType} หน่วย)</p>`;
+                if (startBtn) startBtn.disabled = false;
             }
         }
 
@@ -4074,15 +4164,18 @@
             if (Math.random() < 0.30 && !state.dungeons.some(d => !d.completed)) {
                 const level = Math.random() < 0.95 ? Math.floor(Math.random() * 11) : (Math.random() < 0.98 ? 11 : 12);
                 const depth = DUNGEON_FLOORS[level];
+                const actualDepth = Math.floor(Math.random() * (depth.max - depth.min + 1)) + depth.min;
                 state.dungeons.push({
                     id: Date.now(),
                     level,
-                    depth: Math.floor(Math.random() * (depth.max - depth.min + 1)) + depth.min,
+                    depth: actualDepth,
+                    scouted: false,
                     completed: false,
                     rewards: { money: 0 }
                 });
-                eventLog.push(`🏰 ค้นพบดันเจี้ยนระดับ ${level}!`);
+                eventLog.push(`🏰 ค้นพบดันเจี้ยนระดับ ${level}! (จำนวนชั้นไม่เปิดเผย)`);
                 document.getElementById('dungeon-screen-btn').classList.remove('hidden');
+                document.getElementById('dungeon-indicator').classList.remove('hidden');
             }
             
             // Process rewards
@@ -4123,6 +4216,20 @@
             state.explorationLogs.unshift(logEntry);
             if (state.explorationLogs.length > 30) state.explorationLogs.pop(); // Keep last 30 logs
             
+            // Add activity log
+            const typeLabels = { near: 'ใกล้บ้าน', around: 'รอบนอก', far: 'ไกลโพ้น' };
+            const typeLabel = typeLabels[type] || type;
+            const resultSummary = `สำรวจ${typeLabel}: ${survivors.length}/${numUnits} คนรอด, ได้เงิน $${formatNumber(rewards.money)}, สิ่งของ ${rewards.items.length} ชิ้น`;
+            addActivityLog(`🧭 ${resultSummary}`, 'exploration', {
+                type: typeLabel,
+                survivors: survivors.length,
+                total: numUnits,
+                deaths: damageResult.deaths.length,
+                injured: damageResult.injured.length,
+                money: `$${formatNumber(rewards.money)}`,
+                items: rewards.items.length
+            });
+            
             // Show results
             let resultHTML = `<div id="exploration-results-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
                 <div class="glass-card p-6 rounded-3xl max-w-lg w-full border-t-4 border-emerald-500">
@@ -4147,6 +4254,7 @@
             saveProfile();
             updateStatsUI();
             updatePortfolioUI();
+            updateDungeonUI();
         }
 
         function closeExplorationResults() {
@@ -4177,16 +4285,23 @@
 
         function updateDungeonUI() {
             const currentDungeon = state.dungeons.find(d => !d.completed);
+            const dungeonBtn = document.getElementById('dungeon-screen-btn');
+            const dungeonIndicator = document.getElementById('dungeon-indicator');
             
             if (currentDungeon) {
                 document.getElementById('dungeon-display').classList.remove('hidden');
                 document.getElementById('no-dungeon').classList.add('hidden');
                 document.getElementById('dungeon-name').innerText = `ดันเจี้ยนระดับ ${currentDungeon.level}`;
                 document.getElementById('dungeon-level').innerText = currentDungeon.level;
-                document.getElementById('dungeon-depth').innerText = currentDungeon.depth;
+                document.getElementById('dungeon-depth').innerText = currentDungeon.scouted ? currentDungeon.depth : '??';
+                
+                if (dungeonBtn) dungeonBtn.classList.remove('hidden');
+                if (dungeonIndicator) dungeonIndicator.classList.remove('hidden');
             } else {
                 document.getElementById('dungeon-display').classList.add('hidden');
                 document.getElementById('no-dungeon').classList.remove('hidden');
+                if (dungeonBtn) dungeonBtn.classList.add('hidden');
+                if (dungeonIndicator) dungeonIndicator.classList.add('hidden');
             }
             
             document.getElementById('dungeons-found').innerText = state.dungeons.length;
@@ -4197,6 +4312,13 @@
             const dungeon = state.dungeons.find(d => !d.completed);
             if (!dungeon) return;
             
+            const explorerExists = state.units.some(u => getProfessionFromTypeId(u.typeId).toLowerCase().includes('explore') || getProfessionFromTypeId(u.typeId).toLowerCase().includes('scout'));
+            if (!explorerExists) {
+                showAlert('ต้องการหน่วยสำรวจ', 'ต้องมีหน่วยสายสำรวจอย่างน้อย 1 หน่วยก่อนจึงจะสามารถสอบสวนดันเจี้ยนได้', 'alert-circle');
+                return;
+            }
+            
+            dungeon.scouted = true;
             const difficultyMap = ['ง่ายมาก', 'ง่าย', 'ปานกลาง', 'ยาก', 'ยากมาก', 'อันตราย', 'อันตรายมาก', 'ร้ายแรง', 'ร้ายแรงมาก', 'สำหรับผู้เชี่ยวชาญ', 'ยิ่งใหญ่', 'พิเศษ', 'ของตำนาน'];
             
             let report = `<p><strong>ระดับ:</strong> ${dungeon.level} (${difficultyMap[dungeon.level]})</p>`;
@@ -4205,6 +4327,8 @@
             
             document.getElementById('dungeon-report').classList.remove('hidden');
             document.getElementById('report-content').innerHTML = report;
+            updateDungeonUI();
+            saveProfile();
         }
 
         function dismissDungeon() {
@@ -5113,9 +5237,23 @@
                 // Add unit directly to roster immediately
                 state.units.push(newUnit);
                 showToast(`จ้าง ${getUnitDisplayName(newUnit)} เรียบร้อย`, "success", 2000);
+                const formattedPrice = formatNumber(price);
+                addActivityLog(`⚔️ ได้รับหน่วยรบใหม่: ${getUnitDisplayName(newUnit)} (ค่าจ้าง $${formattedPrice})`, 'unit', {
+                    unitName: getUnitDisplayName(newUnit),
+                    cost: `$${formattedPrice}`,
+                    level: newUnit.level,
+                    atk: newUnit.atk,
+                    def: newUnit.def
+                });
             } else {
                 state.inventory.push({ uid: Date.now() + Math.random(), itemId: itemId, purchasePrice: price });
                 showToast(`ซื้อ ${itemDef.name} เรียบร้อย`, "success", 2000);
+                const formattedPrice = formatNumber(price);
+                addActivityLog(`📦 ซื้อเสบียง: ${itemDef.name} (ราคา $${formattedPrice})`, 'item', {
+                    item: itemDef.name,
+                    cost: `$${formattedPrice}`,
+                    type: itemDef.type
+                });
             }
 
             saveProfile();
@@ -5459,6 +5597,109 @@
             window.currentRenamingUnit = null;
         }
 
+        // --- Activity Logs System ---
+        function renderActivityLogs() {
+            const container = document.getElementById('activity-logs-container');
+            if (!container) return;
+            
+            const logsToDisplay = state.logsFilter === 'all' 
+                ? state.activityLogs 
+                : state.activityLogs.filter(log => log.category === state.logsFilter);
+            
+            if (logsToDisplay.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-center py-8">ยังไม่มีบันทึก</p>';
+                return;
+            }
+            
+            container.innerHTML = logsToDisplay.map(log => {
+                const categoryColors = {
+                    'friend': 'border-emerald-500/30 bg-emerald-500/5',
+                    'exploration': 'border-yellow-500/30 bg-yellow-500/5',
+                    'dungeon': 'border-red-500/30 bg-red-500/5',
+                    'trading': 'border-blue-500/30 bg-blue-500/5',
+                    'unit': 'border-purple-500/30 bg-purple-500/5',
+                    'item': 'border-amber-500/30 bg-amber-500/5',
+                    'other': 'border-slate-500/30 bg-slate-500/5'
+                };
+                
+                const categoryIcons = {
+                    'friend': 'users',
+                    'exploration': 'compass',
+                    'dungeon': 'map-pin',
+                    'trading': 'trending-up',
+                    'unit': 'users',
+                    'item': 'box',
+                    'other': 'info'
+                };
+                
+                return `
+                    <div onclick="showLogDetail(${log.id})" class="bg-slate-800/30 border-l-4 ${categoryColors[log.category] || categoryColors.other} p-3 rounded-lg cursor-pointer hover:bg-slate-800/50 transition-all">
+                        <div class="flex items-start gap-2">
+                            <i data-lucide="${categoryIcons[log.category] || 'info'}" class="w-4 h-4 mt-0.5 flex-shrink-0" style="margin-top: 2px;"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-slate-400">${log.readableTime}</p>
+                                <p class="text-sm text-slate-200 truncate">${censorIds(log.shortMessage)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Refresh lucide icons
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function filterActivityLogs(category) {
+            state.logsFilter = category;
+            
+            // Update button states
+            document.querySelectorAll('.filter-log-btn').forEach(btn => {
+                btn.classList.remove('btn-active');
+                if (btn.getAttribute('data-filter') === category) {
+                    btn.classList.add('btn-active');
+                }
+            });
+            
+            renderActivityLogs();
+        }
+
+        function showLogDetail(logId) {
+            const log = state.activityLogs.find(l => l.id === logId);
+            if (!log) return;
+            
+            const categoryLabels = {
+                'friend': '👥 เพื่อน',
+                'exploration': '🧭 สำรวจ',
+                'dungeon': '🗺️ ดันเจี้ยน',
+                'trading': '📈 การค้า',
+                'unit': '⚔️ หน่วย',
+                'item': '📦 ของ',
+                'other': 'ℹ️ อื่น'
+            };
+            
+            document.getElementById('log-detail-time').textContent = log.readableTime;
+            document.getElementById('log-detail-category').textContent = categoryLabels[log.category] || log.category;
+            document.getElementById('log-detail-message').textContent = log.message;
+            
+            // Show extra details if available
+            const extraElement = document.getElementById('log-detail-extra');
+            const extraContentElement = document.getElementById('log-detail-extra-content');
+            
+            if (log.details && Object.keys(log.details).length > 0) {
+                let extraHTML = '';
+                for (const [key, value] of Object.entries(log.details)) {
+                    const readableKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                    extraHTML += `<div><span class="text-slate-400">${readableKey}:</span> <span class="text-slate-100">${value}</span></div>`;
+                }
+                extraContentElement.innerHTML = extraHTML;
+                extraElement.classList.remove('hidden');
+            } else {
+                extraElement.classList.add('hidden');
+            }
+            
+            document.getElementById('log-detail-modal').classList.remove('hidden');
+        }
+
         function goToHome() {
             state.isAtHome = true;
             document.getElementById('main-dashboard').classList.add('hidden');
@@ -5574,7 +5815,14 @@
                 updateShopPrices(); // Ensure prices are current before rendering
                 renderShopUI();
             }
-            if(screenId === 'profile-screen') updateStatsUI();
+            if(screenId === 'profile-screen') {
+                updateStatsUI();
+                renderActivityLogs(); // Render activity logs when profile screen is shown
+                // Set default filter to 'all'
+                state.logsFilter = 'all';
+                document.querySelectorAll('.filter-log-btn').forEach(btn => btn.classList.remove('btn-active'));
+                document.querySelector('[data-filter="all"]').classList.add('btn-active');
+            }
             if(screenId === 'crafting-screen') renderCraftingUI();
             if(screenId === 'dungeon-screen') updateDungeonUI();
             if(screenId === 'trading-screen') {
@@ -5616,13 +5864,18 @@
             });
             
             state.peer.on('error', err => {
-                // Handle duplicate peer error (likely from duplicate username)
-                if (err.type === 'peer-unavailable' || err.type === 'disconnected' || err.message?.includes('already taken')) {
-                    log(`⚠️ ข้อผิดพลาด: ID ถูกใช้งานไปแล้ว (อาจมีคนอื่นใช้ชื่อนี้)`, "text-rose-500 font-bold");
-                    showAlert("ข้อผิดพลาด ID", "ชื่อผู้ใช้นี้ถูกใช้ไปแล้ว กรุณาเปลี่ยนชื่อและลองใหม่", "alert-circle");
+                // Handle peer connection errors
+                if (err.type === 'peer-unavailable' || err.message?.includes('unavailable')) {
+                    log(`⚠️ ข้อผิดพลาด: Peer ไม่พร้อมใช้งาน`, "text-rose-500 font-bold");
+                    showAlert("ข้อผิดพลาด Peer", "ไม่สามารถเชื่อมต่อได้ กรุณากลับไปตั้งคุณหรือโหลดหน้าใหม่", "alert-circle");
                     // Clear stored ID to force new one
                     const tx = db.transaction("peerID", "readwrite");
                     tx.objectStore("peerID").delete("current");
+                } else if (err.type === 'disconnected') {
+                    log(`⚠️ การเชื่อมต่อขาดหาย`, "text-rose-500 font-bold");
+                } else if (err.message?.includes('already taken')) {
+                    log(`⚠️ ID ถูกใช้ไปแล้ว`, "text-rose-500 font-bold");
+                    showAlert("ข้อผิดพลาด", "ID นี้ถูกใช้ไปแล้ว กรุณาโหลดหน้าใหม่", "alert-circle");
                 } else {
                     console.error('Peer error:', err);
                 }
@@ -5637,16 +5890,36 @@
                 log(`Connected to Peer`, "text-emerald-400");
                 // Send handshake with known peers for mesh networking
                 c.send({ type: 'HANDSHAKE', name: state.username, balance: state.balance, peers: state.friends });
+                
+                // Add activity log for successful connection
+                const friendName = state.friends.find(f => f.id === c.peer)?.username || c.peer;
+                addActivityLog(`🔗 เชื่อมต่อกับ ${friendName}`, 'friend', {
+                    action: 'CONNECTION_ESTABLISHED',
+                    peerId: c.peer,
+                    peerName: friendName
+                });
+                
                 updateFriendsUI();
             });
             c.on('close', () => {
+                if (state.conn === c) state.conn = null;
                 updateFriendsUI();
             });
             c.on('data', data => handleData(data, c));
         }
 
         function handleData(data, c) {
-            if (data.type === 'HANDSHAKE') {
+            if (data.type === 'FRIEND_CONNECT') {
+                // Receive connection notification from friend
+                const friendName = data.from;
+                showToast(`🔗 ${friendName} เชื่อมต่อมาหาคุณ`, "info", 2500);
+                log(`${friendName} เชื่อมต่อมาหาคุณ`, "text-blue-400 font-bold");
+                addActivityLog(`🔗 ${friendName} เชื่อมต่อมาหาคุณ`, 'friend', {
+                    action: 'RECEIVED_CONNECTION',
+                    peerId: c.peer,
+                    peerName: friendName
+                });
+            } else if (data.type === 'HANDSHAKE') {
                 const idx = state.friends.findIndex(f => f.id === c.peer);
                 if (idx === -1) {
                     state.friends.push({ id: c.peer, username: data.name, balance: data.balance });
@@ -5672,40 +5945,98 @@
                 log(`Peer identified as: ${data.name}`, "text-blue-400");
             } else if (data.type === 'TRANSFER') {
                 state.balance += data.amount;
-                log(`ได้รับเงินโอนจาก ${data.from}: $${formatNumber(data.amount)}`, "text-emerald-400 font-bold");
+                const msg = `ได้รับเงินโอนจาก ${data.from}: $${formatNumber(data.amount)}`;
+                log(msg, "text-emerald-400 font-bold");
+                addActivityLog(`💰 ได้รับเงินโอนจาก ${data.from} จำนวน $${formatNumber(data.amount)}`, 'friend', {
+                    from: data.from,
+                    amount: `$${formatNumber(data.amount)}`
+                });
                 showToast(`เพื่อนชื่อ ${data.from} โอนเงินให้คุณ $${data.amount}`, "success", 2500);
                 broadcastBalance();
                 saveProfile();
                 updatePortfolioUI();
             } else if (data.type === 'SIGNAL') {
                 log(`Signal: ${data.msg}`, "text-amber-500 italic");
+                addActivityLog(`📡 ${data.msg}`, 'friend', {
+                    action: 'SIGNAL',
+                    message: data.msg
+                });
             } else if (data.type === 'BALANCE_UPDATE') {
                 const idx = state.friends.findIndex(f => f.id === c.peer);
                 if (idx !== -1) {
                     state.friends[idx].balance = data.balance;
+                    const friendName = state.friends[idx].username;
+                    addActivityLog(`💹 เพื่อน ${friendName} อัปเดตยอดเงิน $${formatNumber(data.balance)}`, 'friend', {
+                        action: 'BALANCE_UPDATE',
+                        friendName: friendName,
+                        newBalance: data.balance
+                    });
                     updateFriendsUI();
                 }
             } else if (data.type === 'ITEM_TRANSFER') {
                 // Receive Item
+                const itemDef = SHOP_ITEMS.find(i => i.id === data.itemId);
                 state.inventory.push({ uid: Date.now(), itemId: data.itemId, purchasePrice: data.value });
+                const itemName = itemDef ? itemDef.name : 'ของไม่ทราบชนิด';
                 saveProfile();
                 renderShopUI();
-                showToast(`${data.from} ส่ง ${data.itemName} ให้คุณ`, "success", 2500);
-                log(`Received ${data.itemName} from ${data.from}`, "text-purple-400");
+                showToast(`${data.from} ส่ง ${itemName} ให้คุณ`, "success", 2500);
+                log(`Received ${itemName} from ${data.from}`, "text-purple-400");
+                addActivityLog(`🎁 ได้รับเสบียงจาก ${data.from}: ${itemName}`, 'friend', {
+                    from: data.from,
+                    item: itemName
+                });
             } else if (data.type === 'ITEM_STOLEN') {
                 // Receive Stolen Item from thief action
+                const stolenItemDef = SHOP_ITEMS.find(i => i.id === data.itemId);
+                const stolenItemName = stolenItemDef ? stolenItemDef.name : 'ของไม่ทราบชนิด';
                 state.inventory.push({ uid: Date.now(), itemId: data.itemId, purchasePrice: 0 });
                 saveProfile();
                 renderShopUI();
-                showToast(`โจรของ ${data.from} ขโมยได้ ${data.itemName}!`, "success", 2500);
-                log(`Thief stole ${data.itemName} from ${data.from}`, "text-amber-500");
+                showToast(`โจรของ ${data.from} ขโมยได้ ${stolenItemName}!`, "success", 2500);
+                log(`Thief stole ${stolenItemName} from ${data.from}`, "text-amber-500");
+                addActivityLog(`🗡️ โจรของคุณขโมยได้ ${stolenItemName} จากเพื่อน ${data.from}`, 'friend', {
+                    from: data.from,
+                    item: stolenItemName,
+                    action: 'STEAL'
+                });
             } else if (data.type === 'HEAL_FRIEND') {
                 // Receive healing from friend
                 state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + data.healAmount);
-                showToast(`${data.from} ส่ง ${data.healerName} มารักษาคุณ! (+${data.healAmount} HP)`, "success", 2500);
-                log(`HEALED by ${data.from}'s ${data.healerName} (+${data.healAmount} HP)`, "text-emerald-400 font-bold");
+                const healerDisplay = data.healerName || 'Healer';
+                showToast(`${data.from} ส่ง ${healerDisplay} มารักษาคุณ! (+${data.healAmount} HP)`, "success", 2500);
+                log(`HEALED by ${data.from}'s ${healerDisplay} (+${data.healAmount} HP)`, "text-emerald-400 font-bold");
+                addActivityLog(`💚 ได้รับการรักษาจาก ${data.from} ด้วย ${healerDisplay} (+${data.healAmount} HP)`, 'friend', {
+                    from: data.from,
+                    healer: healerDisplay,
+                    hpRecovered: data.healAmount
+                });
                 saveProfile();
                 updateStatsUI();
+            } else if (data.type === 'RELEASE_CAPTURED') {
+                // Received release notification
+                if (state.capturedUntil && Date.now() < state.capturedUntil) {
+                    state.capturedUntil = 0;
+                    state.capturedBy = null;
+                    disableGameplayActions(false);
+                    showToast(`🔓 ${data.releaser} ปล่อยตัวคุณเอง!`, "success", 2500);
+                    log(`RELEASED by ${data.releaser}!`, "text-emerald-500 font-bold");
+                    addActivityLog(`🔓 ถูกปล่อยตัวโดย ${data.releaser}`, 'friend', {
+                        action: 'RELEASED',
+                        releaser: data.releaser
+                    });
+                }
+            } else if (data.type === 'RESCUE_FAILED') {
+                // Attacker notified that capture was broken
+                state.capturedPlayers = state.capturedPlayers.filter(p => p.username !== data.prisoner);
+                updateCapturedPlayersUI();
+                showToast(`การจับตัว ${data.prisoner} ถูกทำลายโดย ${data.rescuer}!`, "warning", 3000);
+                log(`CAPTURE BROKEN: ${data.rescuer} freed ${data.prisoner}!`, "text-amber-500 font-bold");
+                addActivityLog(`🛡️ การจับตัวถูกทำลาย! ${data.rescuer} ปล่อย ${data.prisoner}`, 'unit', {
+                    action: 'CAPTURE_BROKEN',
+                    prisoner: data.prisoner,
+                    rescuer: data.rescuer
+                });
             } else if (data.type === 'PVP_ACTION') {
                 // Handle Attack/Heal/Gift/Rob/Capture
                 let msg = '';
@@ -5763,6 +6094,19 @@
                             state.units = state.units.filter(u => u.uid !== defendingUnit.uid);
                             msg += ` - ${getUnitDisplayName(defendingUnit)} ตาย!`;
                             log(`${getUnitDisplayName(defendingUnit)} DIED in defense!`, "text-rose-600 font-bold");
+                            addActivityLog(`⚔️ ถูกโจมตีโดย ${data.from}! หน่วยป้องกัน ${getUnitDisplayName(defendingUnit)} ตาย!`, 'friend', {
+                                from: data.from,
+                                action: 'ATTACK',
+                                damage: dmg,
+                                unitKilled: getUnitDisplayName(defendingUnit)
+                            });
+                        } else {
+                            addActivityLog(`⚔️ ถูกโจมตีโดย ${data.from}! หน่วยป้องกัน ${getUnitDisplayName(defendingUnit)} เสียเลือด ${dmg}`, 'friend', {
+                                from: data.from,
+                                action: 'ATTACK',
+                                damage: dmg,
+                                defendedBy: getUnitDisplayName(defendingUnit)
+                            });
                         }
                     } else {
                         // No defender OR pierced through defender, attack hits player
@@ -5794,6 +6138,12 @@
                         state.stats.hp = Math.max(0, state.stats.hp - dmg);
                     }
                     
+                    addActivityLog(`🗡️ ถูกโจมตีโดย ${data.from}! เสียเลือด ${dmg} HP`, 'friend', {
+                        from: data.from,
+                        action: 'ATTACK',
+                        damage: dmg,
+                        method: isMage ? 'SPELL' : (isThief ? 'STEALTH' : 'NORMAL')
+                    });
                     checkGameOver();
                 } else if (data.action === 'ROB') {
                     // ROB: Steal money with success/failure message
@@ -5802,26 +6152,53 @@
                         state.balance -= data.robAmount;
                         msg = `${data.from} ส่ง ${data.unitName} มาปล้น! ปล้นเงินไป $${formatNumber(data.robAmount)}`;
                         log(`ROBBED by ${data.from} (-$${formatNumber(data.robAmount)})`, "text-amber-500 font-bold");
+                        addActivityLog(`💰 ถูกปล้นโดย ${data.from}! คนโจรขโมยไป $${formatNumber(data.robAmount)}`, 'friend', {
+                            from: data.from,
+                            action: 'ROB',
+                            amount: `$${formatNumber(data.robAmount)}`
+                        });
                         alertIcon = 'treasure-chest';
                     } else {
                         msg = `${data.from} ส่ง ${data.unitName} มาปล้นแต่ล้มเหลว!`;
                         log(`${data.from} attempted to rob but FAILED`, "text-slate-500");
+                        addActivityLog(`🛡️ ถูกปล้นโดย ${data.from} แต่ปล้นล้มเหลว!`, 'friend', {
+                            from: data.from,
+                            action: 'ROB_FAILED'
+                        });
                         alertIcon = 'shield-alert';
                     }
                 } else if (data.action === 'CAPTURE') {
                     // CAPTURE: Temporarily disable actions
                     state.capturedUntil = Date.now() + (data.captureDuration * 1000);
+                    state.capturedBy = { username: data.from, startTime: Date.now(), duration: data.captureDuration };
                     msg = `${data.from} ส่ง ${data.unitName} มาจับตัว! จับไว้ ${data.captureDuration}s`;
                     log(`CAPTURED by ${data.from} (${data.captureDuration}s)`, "text-indigo-500 font-bold");
+                    addActivityLog(`🔒 ถูกจับตัวโดย ${data.from}! จับไว้ ${data.captureDuration} วินาที`, 'friend', {
+                        from: data.from,
+                        action: 'CAPTURE',
+                        duration: `${data.captureDuration}s`
+                    });
                     alertIcon = 'lock';
+                    updateCaptureUI();
+                    disableGameplayActions(true);
                 } else if (data.action === 'HEAL') {
                     state.stats.hp = Math.min(state.stats.maxHp, state.stats.hp + data.value);
                     msg = `${data.from} ส่ง ${data.unitName} มารักษา! (+${formatNumber(data.value)} HP)`;
                     log(`HEALED by ${data.from} (+${formatNumber(data.value)} HP)`, "text-emerald-500 font-bold");
+                    addActivityLog(`💚 ได้รับการรักษาจาก ${data.from}! เพิ่ม HP ${formatNumber(data.value)}`, 'friend', {
+                        from: data.from,
+                        action: 'HEAL',
+                        hpHealed: data.value
+                    });
                     alertIcon = 'heart';
                 } else if (data.action === 'GIFT') {
                     msg = `${data.from} ส่ง ${data.unitName} เป็นของขวัญให้คุณ`;
                     log(`Received ${data.unitName} from ${data.from}`, "text-purple-400");
+                    addActivityLog(`🎁 ได้รับหน่วยรบเป็นของขวัญจาก ${data.from}: ${data.unitName}`, 'friend', {
+                        from: data.from,
+                        action: 'GIFT',
+                        unit: data.unitName
+                    });
                     alertIcon = 'gift';
                 } else if (data.action === 'STEAL') {
                     // STEAL: Thief tries to steal an item
@@ -5875,7 +6252,7 @@
                     }
                 }
                 
-                showAlert("Incoming Unit!", msg, alertIcon);
+                showToast(msg, "info", 3000);
                 saveProfile();
                 updateStatsUI();
             }
@@ -6206,6 +6583,25 @@
                 from: state.username
             });
 
+            // For CAPTURE, track the captured player
+            if (actionType === 'CAPTURE') {
+                const targetFriend = state.friends.find(f => f.id === targetId);
+                if (targetFriend) {
+                    state.capturedPlayers.push({
+                        username: targetFriend.username,
+                        peerId: targetId,
+                        startTime: Date.now(),
+                        releaseTime: Date.now() + (totalCaptureDuration * 1000),
+                        duration: totalCaptureDuration
+                    });
+                    addActivityLog(`🔒 คุณจับตัว ${targetFriend.username} ไว้ ${totalCaptureDuration} วินาที`, 'friend', {
+                        action: 'CAPTURE_SENT',
+                        target: targetFriend.username,
+                        duration: totalCaptureDuration
+                    });
+                }
+            }
+
             // Calculate cost
             let cost = 100 * selectedUnits.length;
             if (actionType === 'ROB') cost = 150 * selectedUnits.length;
@@ -6447,6 +6843,10 @@
                 state.balance -= amount;
                 state.conn.send({ type: 'TRANSFER', amount, from: state.username });
                 log(`โอนเงินให้ ${name}: $${amount}`, "text-blue-400");
+                addActivityLog(`💳 โอนเงินให้เพื่อน ${name} จำนวน $${formatNumber(amount)}`, 'friend', {
+                    to: name,
+                    amount: `$${formatNumber(amount)}`
+                });
                 broadcastBalance();
                 saveProfile();
                 updatePortfolioUI();
@@ -6520,7 +6920,195 @@
             }).join('');
         }
 
+        // --- CAPTURE SYSTEM ---
+        function updateCaptureUI() {
+            const captureEl = document.getElementById('capture-status');
+            const timeEl = document.getElementById('capture-remaining-time');
+            const nameEl = document.getElementById('capture-by-name');
+            
+            if (!state.capturedUntil || Date.now() >= state.capturedUntil) {
+                captureEl.classList.add('hidden');
+                state.capturedBy = null;
+                disableGameplayActions(false);
+                return;
+            }
+            
+            captureEl.classList.remove('hidden');
+            const remaining = Math.ceil((state.capturedUntil - Date.now()) / 1000);
+            timeEl.textContent = remaining;
+            if (state.capturedBy) nameEl.textContent = state.capturedBy.username;
+        }
+
+        function disableGameplayActions(disabled) {
+            const buttons = [
+                document.querySelector('[onclick*="showScreen(\'profile-screen\')"]'),
+                document.querySelector('[onclick*="showScreen(\'loan-screen\')"]'),
+                document.querySelector('[onclick*="showScreen(\'shop-screen\')"]'),
+                document.querySelector('[onclick*="showScreen(\'crafting-screen\')"]')
+            ].filter(b => b);
+            
+            buttons.forEach(btn => {
+                if (disabled) {
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.pointerEvents = 'none';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                    btn.style.pointerEvents = 'auto';
+                }
+            });
+            
+            // Also disable profile screen buttons
+            if (document.getElementById('profile-screen')) {
+                const profileBtns = document.getElementById('profile-screen')?.querySelectorAll('button');
+                profileBtns?.forEach(btn => {
+                    const btnText = btn.textContent;
+                    if (btnText.includes('สั่ง') || btnText.includes('ซื้อ') || btnText.includes('คราฟ')) {
+                        btn.disabled = disabled;
+                        btn.style.opacity = disabled ? '0.5' : '1';
+                    }
+                });
+            }
+        }
+
+        function releasePlayer(playerId, capturedUsername) {
+            state.capturedPlayers = state.capturedPlayers.filter(p => p.peerId !== playerId);
+            updateCapturedPlayersUI();
+            showToast(`ปล่อยตัว ${capturedUsername} แล้ว`, "info", 2000);
+            
+            // Send release notification to captured player
+            if (state.peer.connections[playerId]) {
+                state.peer.connections[playerId][0].send({
+                    type: 'RELEASE_CAPTURED',
+                    releaser: state.username
+                });
+            }
+            
+            addActivityLog(`🔓 คุณปล่อยตัว ${capturedUsername}`, 'friend', {
+                action: 'RELEASE',
+                released: capturedUsername
+            });
+        }
+
+        function updateCapturedPlayersUI() {
+            const container = document.getElementById('captured-players-list');
+            
+            if (state.capturedPlayers.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            container.innerHTML = `
+                <div class="text-amber-400 text-[10px] font-bold mb-2">กำลังจับตัว (${state.capturedPlayers.length})</div>
+                ${state.capturedPlayers.map((p, i) => {
+                    const remaining = Math.ceil((p.releaseTime - Date.now()) / 1000);
+                    return `
+                        <div class="flex items-center justify-between gap-2 mb-2 bg-amber-950/30 p-2 rounded">
+                            <div class="text-[9px]">
+                                ${p.username} <span class="text-amber-400">(${remaining}s)</span>
+                            </div>
+                            <button onclick="releasePlayer('${p.peerId}', '${p.username}')" class="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-[8px] rounded font-bold">ปล่อย</button>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+
+        // Update capture UI every 100ms
+        setInterval(() => {
+            updateCaptureUI();
+            if (state.capturedPlayers.length > 0) {
+                updateCapturedPlayersUI();
+            }
+        }, 100);
+
+        // --- RESCUE SYSTEM ---
+        // Units attempt to find and free captured player
+        function attemptRescue() {
+            if (!state.capturedUntil || Date.now() >= state.capturedUntil) return;
+            
+            // Only trigger every 3 seconds max
+            const now = Date.now();
+            if (state.lastRescueAttempt && now - state.lastRescueAttempt < 3000) return;
+            state.lastRescueAttempt = now;
+            
+            const capturedRemaining = (state.capturedUntil - now) / 1000;
+            if (capturedRemaining <= 0) {
+                state.capturedUntil = 0;
+                state.capturedBy = null;
+                disableGameplayActions(false);
+                return;
+            }
+            
+            // Calculate rescue chance based on units
+            if (state.units.length === 0) return; // No units to rescue
+            
+            const rescueChance = calculateRescueChance();
+            
+            if (Math.random() < rescueChance) {
+                // Rescue successful!
+                const rescuer = state.units[Math.floor(Math.random() * state.units.length)];
+                state.capturedUntil = 0;
+                state.capturedBy = null;
+                disableGameplayActions(false);
+                
+                msg = `🚨 ${getUnitDisplayName(rescuer)} ค้นหาตัวคุณและปล่อยตัวเอง!`;
+                log(msg, "text-emerald-500 font-bold");
+                showAlert("Rescue!", msg, "shield");
+                addActivityLog(`🛡️ ถูกปล่อยตัวจากการจับ โดย ${getUnitDisplayName(rescuer)}`, 'unit', {
+                    action: 'RESCUE',
+                    rescuer: getUnitDisplayName(rescuer)
+                });
+                
+                // Notify the capturer
+                if (state.capturedBy && state.peer.connections[state.capturedBy.id]) {
+                    state.peer.connections[state.capturedBy.id][0].send({
+                        type: 'RESCUE_FAILED',
+                        prisoner: state.username,
+                        rescuer: getUnitDisplayName(rescuer)
+                    });
+                }
+            }
+        }
+
+        function calculateRescueChance() {
+            if (state.units.length === 0) return 0.01; // Very low if no units
+            
+            // Get highest level and power
+            const maxLevel = Math.max(...state.units.map(u => u.level || 1));
+            const totalPower = state.units.reduce((sum, u) => sum + (u.atk || 10) + (u.def || 5), 0);
+            const avgPower = totalPower / state.units.length;
+            
+            // Count specialized units
+            const healersCount = state.units.filter(u => 
+                (u.typeId && (u.typeId.includes('priest') || u.typeId.includes('mage'))) || 
+                (u.name && u.name.includes('นักบวช'))
+            ).length;
+            
+            // Base chance: 2-5% per unit, scaled by level
+            let chance = state.units.length * 0.025 * (1 + (maxLevel / 100));
+            chance += healersCount * 0.03; // Healers have bonus
+            chance = Math.min(chance, 0.4); // Cap at 40%
+            
+            return chance;
+        }
+
+        // Run rescue attempts every 5 seconds
+        setInterval(() => {
+            if (state.capturedUntil && Date.now() < state.capturedUntil) {
+                attemptRescue();
+            }
+        }, 5000);
+
         function openLeaderboardModal() {
+            // Remove existing modal if it exists
+            const existingModal = document.getElementById('leaderboard-modal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
             const modal = document.createElement('div');
             modal.id = 'leaderboard-modal';
             modal.className = 'fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4';
@@ -6587,18 +7175,40 @@
         
         function closeLeaderboardModal() {
             const modal = document.getElementById('leaderboard-modal');
-            if (modal) modal.remove();
+            if (modal) {
+                modal.remove();
+            }
         }
         
         function connectFromLeaderboard() {
             const id = document.getElementById('leaderboard-peer-id').value.trim();
             if (id) {
                 if (state.peer) {
+                    if (id === state.myId) {
+                        closeLeaderboardModal();
+                        showAlert("ข้อผิดพลาด", "คุณไม่สามารถเชื่อมต่อกับตัวเองได้", "alert-circle");
+                        return;
+                    }
+                    
                     const c = state.peer.connect(id, {metadata: {name: state.username}});
                     handleInboundConnection(c);
                     log(`เชื่อมต่อกับ ${id}...`, "text-blue-400");
+                    showToast(`เชื่อมต่อเพื่อน ${id}...`, "info", 2000);
+                    
+                    // Send connection notification after connection opens
+                    setTimeout(() => {
+                        if (state.conn && state.conn.peer === id) {
+                            state.conn.send({ type: 'FRIEND_CONNECT', from: state.username, peerId: state.myId });
+                        }
+                    }, 500);
+                    
                     document.getElementById('leaderboard-peer-id').value = '';
+                } else {
+                    showAlert("ข้อผิดพลาด", "ระบบ Peer ยังไม่พร้อม กรุณารอสักครู่", "alert-circle");
                 }
+                closeLeaderboardModal();
+            } else {
+                showAlert("ข้อผิดพลาด", "กรุณากรอก ID ของเพื่อน", "alert-circle");
             }
         }
 
@@ -6612,18 +7222,41 @@
         }
 
         function connectToSavedFriend(friendId) {
+            // Close modal first before connecting
+            closeLeaderboardModal();
+            
             if (state.peer) {
+                if (!friendId || friendId.trim() === '') {
+                    showAlert("ข้อผิดพลาด", "รหัส ID ของเพื่อนไม่ถูกต้อง", "alert-circle");
+                    return;
+                }
+                
                 const c = state.peer.connect(friendId, {metadata: {name: state.username}});
                 handleInboundConnection(c);
                 log(`เชื่อมต่อกับเพื่อน ${friendId}...`, "text-blue-400");
+                showToast(`เชื่อมต่อไปยัง ${friendId}...`, "info", 2000);
+                
+                // Send connection notification after connection opens
+                setTimeout(() => {
+                    if (state.conn && state.conn.peer === friendId) {
+                        state.conn.send({ type: 'FRIEND_CONNECT', from: state.username, peerId: state.myId });
+                    }
+                }, 500);
+            } else {
+                showAlert("ข้อผิดพลาด", "ระบบ Peer ยังไม่พร้อม กรุณารอสักครู่", "alert-circle");
             }
         }
 
         async function deleteSavedFriend(friendId) {
             if (confirm("ลบเพื่อนนี้?")) {
+                // Close modal before updating
+                closeLeaderboardModal();
+                
                 await removeFriend(friendId);
                 state.friends = state.friends.filter(f => f.id !== friendId);
-                updateFriendsUI();
+                
+                // Don't call updateFriendsUI() as it will recreate the modal
+                // Instead, just refresh the modal if the user opens it again
             }
         }
 
@@ -6633,6 +7266,45 @@
             div.className = `py-1 border-b border-slate-900/50 ${c}`;
             div.innerHTML = `<span class="opacity-30 mr-2 text-[8px]">${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</span> ${m}`;
             container.prepend(div);
+        }
+
+        // Enhanced activity logging system
+        // Censor long IDs in messages for privacy
+        function censorIds(text) {
+            // Replace long alphanumeric strings (likely IDs) with dots
+            // IDs are typically 15-50 characters of alphanumeric + hyphens/underscores
+            return text.replace(/[a-zA-Z0-9_-]{15,}/g, (match) => {
+                return '.'.repeat(Math.min(5, match.length));
+            });
+        }
+        
+        function addActivityLog(message, category = 'other', details = {}) {
+            const timestamp = Date.now();
+            const logEntry = {
+                id: timestamp + Math.random(),
+                timestamp: timestamp,
+                message: message,
+                shortMessage: message.length > 100 ? message.substring(0, 97) + '...' : message,
+                category: category, // 'friend', 'exploration', 'dungeon', 'trading', 'unit', 'item', 'other'
+                details: details,
+                readableTime: new Date(timestamp).toLocaleString('th-TH', { 
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute:'2-digit', second:'2-digit'
+                })
+            };
+            
+            // Keep only last 500 logs to avoid memory issues
+            state.activityLogs.unshift(logEntry);
+            if (state.activityLogs.length > 500) {
+                state.activityLogs.pop();
+            }
+            
+            saveProfile();
+
+            // Update activity log panel in real-time if visible
+            if (document.getElementById('activity-logs-container')) {
+                renderActivityLogs();
+            }
         }
 
         function showAlert(title, msg, icon) {
@@ -6690,13 +7362,10 @@
         function closeModal(id) {
             const modal = document.getElementById(id);
             if (modal) {
-                if (modal.classList.contains('hidden')) {
-                    modal.classList.remove('hidden');
-                } else {
-                    modal.remove();
-                }
+                modal.classList.add('hidden');
             }
         }
+        
         function clearLogs() { document.getElementById('log-container').innerHTML = ''; }
 
         function closeGameOverModal() {
@@ -6738,6 +7407,21 @@
             state.lastShownPaymentPhase = -1;
             state.upkeepWarningStarted = false;
             state.upkeepWarningPhase = 0;
+            state.explorationLogs = [];
+            state.activityLogs = [];
+            state.dungeonLogs = [];
+            window.activeExplorations = [];
+            
+            // Clear visual logs
+            clearLogs();
+            
+            // Close exploration modal (if open)
+            const explorationModal = document.getElementById('exploration-modal');
+            if (explorationModal) explorationModal.remove();
+            
+            // Re-render UI of logs
+            updateExplorationUI();
+            renderActivityLogs();
             
             // Close modals
             closeGameOverModal();
@@ -6849,11 +7533,14 @@
                 state.multiplierLevel = saved.multiplierLevel || 2;
                 state.actionCooldowns = saved.actionCooldowns || {};
                 state.capturedUntil = saved.capturedUntil || 0;
+                state.capturedBy = saved.capturedBy || null;
+                state.capturedPlayers = saved.capturedPlayers || [];
                 state.dungeons = saved.dungeons || [];
                 state.lastKnownPrices = saved.lastKnownPrices || {};
                 state.gameOverState = saved.gameOverState || null;
                 state.explorationLogs = saved.explorationLogs || [];
                 state.dungeonLogs = saved.dungeonLogs || [];
+                state.activityLogs = saved.activityLogs || [];
                 state.upkeepPaymentStartTime = saved.upkeepPaymentStartTime || Date.now();
                 state.lastUpkeepPayTime = saved.lastUpkeepPayTime || Date.now();
                 state.upkeepPaymentPhase = saved.upkeepPaymentPhase || 0;
@@ -6920,6 +7607,7 @@
                 updateMultiplierUI(); // Update multiplier display to show actual level
                 updateExplorationUI(); // Update exploration display on load
                 updateDungeonExplorationUI(); // Update dungeon exploration display on load
+                updateDungeonUI(); // Update dungeon discovery display on load
             } else {
                 document.getElementById('setup-screen').classList.remove('hidden');
                 loadAccountsList();
@@ -6949,6 +7637,8 @@
                     state.actionCooldowns = {};
                     state.loanAutoPayCount = 0;
                     state.capturedUntil = 0;
+                    state.capturedBy = null;
+                    state.capturedPlayers = [];
                     state.dungeons = [];
                     state.gameOverState = null;
                     state.lastUpkeepPayTime = Date.now();
@@ -6982,12 +7672,18 @@
                     state.shopStock = {};
                     state.actionCooldowns = {}; // Reset cooldowns
                     state.capturedUntil = 0; // Reset capture
+                    state.capturedBy = null;
+                    state.capturedPlayers = [];
                     state.dungeons = []; // Reset dungeons
                     // Clear active explorations and stop timers
                     window.activeExplorations.forEach(exp => {
                         if (exp.timerInterval) clearInterval(exp.timerInterval);
                     });
                     window.activeExplorations = [];
+                    state.explorationLogs = [];
+                    state.activityLogs = [];
+                    state.dungeonLogs = [];
+                    clearLogs();
                     saveProfile();
                     location.reload();
                 }
