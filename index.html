@@ -2129,7 +2129,8 @@
             if (healButton) {
                 const damageTaken = Math.max(0, state.stats.maxHp - state.stats.hp);
                 const healCost = damageTaken * 100;
-                healButton.innerHTML = `<i data-lucide="heart-pulse"></i> ❤️ รักษาตัวเอง ($${formatNumber(healCost)})`; // ปุ่มฮีลเลือดตัวเอง
+                healButton.innerHTML = `<i data-lucide="heart-pulse"></i> รักษาตัวเอง ($${formatNumber(healCost)})`; // ปุ่มฮีลเลือดตัวเอง
+                lucide.createIcons(); // Render the heart-pulse icon
             }
 
             // Update multi-action UI
