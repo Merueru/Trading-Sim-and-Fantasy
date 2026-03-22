@@ -5673,8 +5673,9 @@
             const inv = state.inventory[idx];
             const item = SHOP_ITEMS.find(i => i.id === inv.itemId);
 
-            // Handle Health Potions (Low/Mid/High) - open target selection dialog
-            if(item.effect && item.effect.hp) {
+            // Handle targetable items like Health Potions - open target selection dialog
+            // We identify them by name containing "Potion" and having an HP effect.
+            if(item.effect && item.effect.hp && item.name.toLowerCase().includes('potion')) {
                 window.currentPotionUid = uid;
                 window.currentPotionFromConsumablesModal = fromConsumablesModal;
                 openHealthPotionModal(uid, fromConsumablesModal);
@@ -8288,6 +8289,11 @@
                 saveProfile();
             }, 2000);
         };
+    </script>
+</body>
+</html>
+</html>
+</html> };
     </script>
 </body>
 </html>
